@@ -9,6 +9,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc src/index.ts --strict --declaration --module commonjs --outDir lib && tsc src/index.ts --strict --declaration --module esnext --outDir es",
+    "openapi": "openapi --input ./api-spec/statebacked.openapi.v3.yaml --output gen --client fetch --useOptions --indent 2",
     "prettier": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint src",
     "doc": "typedoc"
@@ -43,6 +44,7 @@
     "@typescript-eslint/eslint-plugin": "^5.60.1",
     "@typescript-eslint/parser": "^5.60.1",
     "eslint": "^8.43.0",
+    "openapi-typescript-codegen": "^0.24.0",
     "prettier": "^2.8.8",
     "typedoc": "^0.24.8",
     "typescript": "^5.1.6"
