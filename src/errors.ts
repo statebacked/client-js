@@ -1,8 +1,23 @@
-export class NotFoundError extends Error {
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+    public readonly code?: string,
+    public readonly cause?: Error,
+  ) {
+    super(message);
+
+    Object.setPrototypeOf(this, ApiError.prototype);
+
+    this.name = "ApiError";
+  }
+}
+
+export class NotFoundError extends ApiError {
   static readonly status = 404;
 
-  constructor(message: string, code: string, public readonly cause?: Error) {
-    super(message);
+  constructor(message: string, code?: string, cause?: Error) {
+    super(message, NotFoundError.status, code, cause);
 
     Object.setPrototypeOf(this, NotFoundError.prototype);
 
@@ -10,12 +25,36 @@ export class NotFoundError extends Error {
   }
 }
 
-export class OrgHeaderRequiredError extends Error {
+export class ConflictError extends ApiError {
+  static readonly status = 409;
+
+  constructor(message: string, code?: string, cause?: Error) {
+    super(message, ConflictError.status, code, cause);
+
+    Object.setPrototypeOf(this, NotFoundError.prototype);
+
+    this.name = "ConflictError";
+  }
+}
+
+export class ClientError extends ApiError {
+  static readonly status = 400;
+
+  constructor(message: string, code?: string, cause?: Error) {
+    super(message, ClientError.status, code, cause);
+
+    Object.setPrototypeOf(this, ClientError.prototype);
+
+    this.name = "ClientError";
+  }
+}
+
+export class OrgHeaderRequiredError extends ClientError {
   static readonly status = 400;
   static readonly code = "specify-org";
 
-  constructor(message: string, public readonly cause?: Error) {
-    super(message);
+  constructor(message: string, cause?: Error) {
+    super(message, OrgHeaderRequiredError.code, cause);
 
     Object.setPrototypeOf(this, OrgHeaderRequiredError.prototype);
 
@@ -23,19 +62,21 @@ export class OrgHeaderRequiredError extends Error {
   }
 }
 
-export class UnauthorizedError extends Error {
+export class UnauthorizedError extends ApiError {
   static readonly status = 403;
 
   constructor(
     message: string,
-    public readonly code:
+    code?:
       | "missing-scope"
       | "rejected-by-machine-authorizer"
       | "missing-user"
-      | "missing-org",
-    public readonly cause?: Error
+      | "missing-org"
+      // deno-lint-ignore no-explicit-any
+      | (string & { _unknown?: any }),
+    cause?: Error,
   ) {
-    super(message);
+    super(message, UnauthorizedError.status, code, cause);
 
     Object.setPrototypeOf(this, UnauthorizedError.prototype);
 

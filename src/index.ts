@@ -1,201 +1,258 @@
-import * as svc from "../gen";
-import * as errors from "./errors";
+import * as errors from "./errors.ts";
+import * as api from "./gen-api.ts";
 
 export { errors };
 
-svc.OpenAPI.CREDENTIALS = "include";
-svc.OpenAPI.WITH_CREDENTIALS = true;
-
-export const config = (token: string) => {
-  svc.OpenAPI.TOKEN = token;
+export type ClientOpts = {
+  basePath?: string;
+  orgId?: string;
 };
 
-export const machines = {
-  create: (machineName: string, signal?: AbortSignal): Promise<void> =>
-    withStructuredErrors(
-      withAbort(
-        svc.MachinesService.postMachines({
-          requestBody: {
-            slug: machineName,
-          },
-        }),
-        signal
-      )
-    ),
-};
+export class StateBackedClient {
+  private readonly opts: ClientOpts;
 
-export const machineVersions = {
-  provisionallyCreateVersion: (
-    machineName: MachineSlug,
-    signal?: AbortSignal
-  ): Promise<ProvisionallyCreateVersionResponse> =>
-    withStructuredErrors(
-      withAbort(
-        svc.MachineVersionsService.postMachinesV({
-          machineSlug: machineName,
-          requestBody: {},
-        }),
-        signal
-      )
-    ),
-
-  finalizeVersion: (
-    machineName: MachineSlug,
-    signedMachineVersionId: SignedMachineVersionId,
-    req: FinalizeVersionRequest,
-    signal?: AbortSignal
-  ): Promise<FinalizeVersionResponse> =>
-    withStructuredErrors(
-      withAbort(
-        svc.MachineVersionsService.putMachinesV({
-          machineSlug: machineName,
-          signedMachineVersionId,
-          requestBody: req,
-        }),
-        signal
-      )
-    ),
-
-  createVersion: async (
-    machineName: MachineSlug,
-    req: NonNullable<FinalizeVersionRequest> & { code: string },
-    signal?: AbortSignal
-  ): Promise<FinalizeVersionResponse> => {
-    const provisionalCreationRes =
-      await machineVersions.provisionallyCreateVersion(machineName, signal);
-    const {
-      codeUploadFields,
-      codeUploadUrl,
-      machineVersionId: signedMachineVersionId,
-    } = provisionalCreationRes;
-
-    const uploadForm = new FormData();
-    for (const [key, value] of Object.entries(codeUploadFields)) {
-      uploadForm.append(key, value as string);
-    }
-    uploadForm.set("content-type", "application/javascript");
-    uploadForm.append(
-      "file",
-      new Blob([req.code], {
-        type: "application/javascript",
-      }),
-      `${machineName}.js`
-    );
-
-    await fetch(codeUploadUrl, {
-      method: "POST",
-      body: uploadForm,
-      signal,
-    });
-
-    return machineVersions.finalizeVersion(
-      machineName,
-      signedMachineVersionId,
-      {
-        clientInfo: req.clientInfo,
-        makeCurrent: req.makeCurrent,
-      },
-      signal
-    );
-  },
-};
-
-export const machineInstances = {
-  create: (
-    machineName: MachineSlug,
-    req: CreateMachineInstanceRequest,
-    signal?: AbortSignal
-  ): Promise<State> =>
-    withStructuredErrors(
-      withAbort(
-        svc.MachineInstancesService.postMachines({
-          machineSlug: machineName,
-          requestBody: {
-            slug: req?.slug,
-            context: req?.context,
-            machineVersionId: req?.machineVersionId,
-          },
-        }),
-        signal
-      )
-    ),
-
-  sendEvent: (
-    machineName: MachineSlug,
-    instanceName: MachineInstanceSlug,
-    req: NonNullable<SendEventRequest>,
-    signal?: AbortSignal
-  ): Promise<State> =>
-    withStructuredErrors(
-      withAbort(
-        svc.MachineInstancesService.postMachinesIEvents({
-          machineSlug: machineName,
-          instanceSlug: instanceName,
-          requestBody: {
-            event: req.event,
-          },
-        }),
-        signal
-      )
-    ),
-};
-
-export type FinalizeVersionRequest = Parameters<
-  typeof svc.MachineVersionsService.putMachinesV
->[0]["requestBody"];
-export type CreateMachineInstanceRequest = Parameters<
-  typeof svc.MachineInstancesService.postMachines
->[0]["requestBody"];
-export type SendEventRequest = Parameters<
-  typeof svc.MachineInstancesService.postMachinesIEvents
->[0]["requestBody"];
-
-export type State = svc.State;
-export type ProvisionallyCreateVersionResponse = Awaited<
-  ReturnType<typeof svc.MachineVersionsService.postMachinesV>
->;
-export type FinalizeVersionResponse = Awaited<
-  ReturnType<typeof svc.MachineVersionsService.putMachinesV>
->;
-
-export type MachineSlug = svc.MachineSlug;
-export type MachineInstanceSlug = svc.MachineInstanceSlug;
-export type SignedMachineVersionId = svc.SignedMachineVersionId;
-export type MachineVersionId = svc.MachineVersionId;
-export type Event = svc.Event;
-export type EventWithPayload = svc.EventWithPayload;
-export type EventWithoutPayload = svc.EventWithoutPayload;
-
-function withAbort<T>(
-  cancellablePromise: svc.CancelablePromise<T>,
-  signal?: AbortSignal
-) {
-  if (signal) {
-    signal.addEventListener("abort", () => cancellablePromise.cancel());
+  constructor(private readonly token: string, opts: ClientOpts) {
+    this.opts = {
+      basePath: opts.basePath ?? "https://api.statebacked.dev",
+      orgId: opts.orgId,
+    };
   }
-  return cancellablePromise;
+
+  private get headers() {
+    return {
+      "content-type": "application/json",
+      "authorization": `Bearer ${this.token}`,
+      ...(this.opts.orgId ? { "x-statebacked-org-id": this.opts.orgId } : {}),
+    };
+  }
+
+  public readonly machines = {
+    create: async (
+      machineName: MachineName,
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      const req: CreateMachineRequest = {
+        slug: machineName,
+      };
+
+      adaptErrors(
+        await fetch(
+          `${this.opts.basePath}/machines`,
+          {
+            method: "POST",
+            headers: this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      );
+    },
+  };
+
+  public readonly machineVersions = {
+    provisionallyCreate: async (
+      machineName: MachineName,
+      signal?: AbortSignal,
+    ): Promise<ProvisionallyCreateVersionResponse> =>
+      adaptErrors(
+        await fetch(
+          `${this.opts.basePath}/machines/${machineName}/v`,
+          {
+            method: "POST",
+            headers: this.headers,
+            signal,
+          },
+        ),
+      ),
+
+    finalize: async (
+      machineName: MachineName,
+      signedMachineVersionId: string,
+      req: FinalizeVersionRequest,
+      signal?: AbortSignal,
+    ): Promise<FinalizeVersionResponse> =>
+      adaptErrors(
+        await fetch(
+          `${this.opts.basePath}/machines/${machineName}/v/${signedMachineVersionId}`,
+          {
+            method: "PUT",
+            headers: this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
+
+    createVersion: async (
+      machineName: MachineName,
+      req: NonNullable<FinalizeVersionRequest> & { code: string },
+      signal?: AbortSignal,
+    ): Promise<FinalizeVersionResponse> => {
+      const provisionalCreationRes = await this.machineVersions
+        .provisionallyCreate(machineName, signal);
+      const {
+        codeUploadFields,
+        codeUploadUrl,
+        machineVersionId: signedMachineVersionId,
+      } = provisionalCreationRes;
+
+      const uploadForm = new FormData();
+      for (const [key, value] of Object.entries(codeUploadFields)) {
+        uploadForm.append(key, value as string);
+      }
+      uploadForm.set("content-type", "application/javascript");
+      uploadForm.append(
+        "file",
+        new Blob([req.code], {
+          type: "application/javascript",
+        }),
+        `${machineName}.js`,
+      );
+
+      await fetch(codeUploadUrl, {
+        method: "POST",
+        body: uploadForm,
+        signal,
+      });
+
+      return this.machineVersions.finalize(
+        machineName,
+        signedMachineVersionId,
+        {
+          clientInfo: req.clientInfo,
+          makeCurrent: req.makeCurrent,
+        },
+        signal,
+      );
+    },
+  };
+
+  public readonly instances = {
+    create: async (
+      machineName: MachineName,
+      req: CreateMachineInstanceRequest,
+      signal?: AbortSignal,
+    ): Promise<CreateMachineInstanceResponse> =>
+      adaptErrors(
+        await fetch(
+          `${this.opts.basePath}/machines/${machineName}`,
+          {
+            method: "POST",
+            headers: this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
+
+    sendEvent: async (
+      machineName: MachineName,
+      instanceName: MachineInstanceName,
+      req: SendEventRequest,
+      signal?: AbortSignal,
+    ): Promise<SendEventResponse> =>
+      adaptErrors(
+        await fetch(
+          `${this.opts.basePath}/machines/${machineName}/i/${instanceName}/events`,
+          {
+            method: "POST",
+            headers: this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
+  };
 }
 
-async function withStructuredErrors<T>(promise: Promise<T>) {
-  try {
-    return await promise;
-  } catch (e) {
-    if (e instanceof svc.ApiError) {
-      let fallback: Error = e;
-      for (const Err of Object.values(errors)) {
-        if (e.status !== Err.status) {
-          continue;
-        }
+export type CreateMachineRequest = NonNullable<
+  api.paths["/machines"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type ProvisionallyCreateVersionRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/v"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type FinalizeVersionRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/v/{signedMachineVersionId}"]["put"][
+    "requestBody"
+  ]
+>["content"]["application/json"];
+export type CreateMachineInstanceRequest = NonNullable<
+  api.paths["/machines/{machineSlug}"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type SendEventRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}/events"]["post"][
+    "requestBody"
+  ]
+>["content"]["application/json"];
 
-        if ("code" in Err && e.body?.code === Err.code) {
-          throw new Err(e.body.error, e);
-        }
+export type ProvisionallyCreateVersionResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/v"]["post"]["responses"]["200"]
+>["content"]["application/json"];
+export type FinalizeVersionResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/v/{signedMachineVersionId}"]["put"][
+    "responses"
+  ]["200"]
+>["content"]["application/json"];
+export type CreateMachineInstanceResponse = NonNullable<
+  api.paths["/machines/{machineSlug}"]["post"]["responses"]["200"]
+>["content"]["application/json"];
+export type SendEventResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}/events"]["post"][
+    "responses"
+  ]["200"]
+>["content"]["application/json"];
 
-        fallback = new Err(e.body?.error ?? e.message, e.body?.code, e);
-      }
+export type MachineName = api.components["schemas"]["MachineSlug"];
+export type MachineInstanceName =
+  api.components["schemas"]["MachineInstanceSlug"];
+export type SignedMachineVersionId =
+  api.components["schemas"]["SignedMachineVersionId"];
+export type MachineVersionId = api.components["schemas"]["MachineVersionId"];
+export type Event = api.components["schemas"]["Event"];
+export type EventWithPayload = api.components["schemas"]["EventWithPayload"];
+export type EventWithoutPayload =
+  api.components["schemas"]["EventWithoutPayload"];
+export type State = api.components["schemas"]["State"];
+export type StateValue = api.components["schemas"]["StateValue"];
 
-      throw fallback;
-    }
-    throw e;
+async function adaptErrors(res: Response) {
+  if (res.ok) {
+    return res.json();
   }
+
+  let errorCode: string | undefined;
+  let errorMessage = "error processing request";
+  try {
+    const body = await res.json();
+    errorCode = body.code;
+    errorMessage = body.error;
+  } catch (e) {
+    // swallow
+  }
+
+  switch (res.status) {
+    case 400:
+      if (errorCode === errors.OrgHeaderRequiredError.code) {
+        throw new errors.OrgHeaderRequiredError(errorMessage);
+      }
+      throw new errors.ClientError(errorMessage, errorCode);
+    case 403:
+      switch (errorCode) {
+        case errors.MissingOrgError.code:
+          throw new errors.MissingOrgError(errorMessage);
+        case errors.MissingScopeError.code:
+          throw new errors.MissingScopeError(errorMessage);
+        case errors.MissingUserError.code:
+          throw new errors.MissingUserError(errorMessage);
+        case errors.RejectedByMachineAuthorizerError.code:
+          throw new errors.RejectedByMachineAuthorizerError(errorMessage);
+      }
+      throw new errors.UnauthorizedError(errorMessage, errorCode);
+    case 404:
+      throw new errors.NotFoundError(errorMessage, errorCode);
+    case 409:
+      throw new errors.ConflictError(errorMessage, errorCode);
+  }
+
+  throw new errors.ApiError(errorMessage, res.status, errorCode);
 }
