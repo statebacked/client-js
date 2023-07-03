@@ -27,7 +27,7 @@ jobs:
 
       - run: ./scripts/gen.sh --no-docker
 
-      - run: ./scripts/build.sh --no-docker "$(basename "${GITHUB_REF}"} | cut -c2-)"
+      - run: ./scripts/build.sh --no-docker "$(basename "${GITHUB_REF}" | cut -c2-)"
 
       - run: npm publish --access public
         working-directory: ./npm 
