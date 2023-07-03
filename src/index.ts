@@ -11,10 +11,10 @@ export type ClientOpts = {
 export class StateBackedClient {
   private readonly opts: ClientOpts;
 
-  constructor(private readonly token: string, opts: ClientOpts) {
+  constructor(private readonly token: string, opts?: ClientOpts) {
     this.opts = {
-      basePath: opts.basePath ?? "https://api.statebacked.dev",
-      orgId: opts.orgId,
+      basePath: opts?.basePath ?? "https://api.statebacked.dev",
+      orgId: opts?.orgId,
     };
   }
 
@@ -54,7 +54,7 @@ export class StateBackedClient {
       machineName: MachineName,
       signal?: AbortSignal,
     ): Promise<ProvisionallyCreateVersionResponse> =>
-      adaptErrors(
+      adaptErrors<ProvisionallyCreateVersionResponse>(
         await fetch(
           `${this.opts.basePath}/machines/${machineName}/v`,
           {
@@ -71,7 +71,7 @@ export class StateBackedClient {
       req: FinalizeVersionRequest,
       signal?: AbortSignal,
     ): Promise<FinalizeVersionResponse> =>
-      adaptErrors(
+      adaptErrors<FinalizeVersionResponse>(
         await fetch(
           `${this.opts.basePath}/machines/${machineName}/v/${signedMachineVersionId}`,
           {
@@ -127,13 +127,13 @@ export class StateBackedClient {
     },
   };
 
-  public readonly instances = {
+  public readonly machineInstances = {
     create: async (
       machineName: MachineName,
       req: CreateMachineInstanceRequest,
       signal?: AbortSignal,
     ): Promise<CreateMachineInstanceResponse> =>
-      adaptErrors(
+      adaptErrors<CreateMachineInstanceResponse>(
         await fetch(
           `${this.opts.basePath}/machines/${machineName}`,
           {
@@ -151,7 +151,7 @@ export class StateBackedClient {
       req: SendEventRequest,
       signal?: AbortSignal,
     ): Promise<SendEventResponse> =>
-      adaptErrors(
+      adaptErrors<SendEventResponse>(
         await fetch(
           `${this.opts.basePath}/machines/${machineName}/i/${instanceName}/events`,
           {
@@ -215,17 +215,17 @@ export type EventWithoutPayload =
 export type State = api.components["schemas"]["State"];
 export type StateValue = api.components["schemas"]["StateValue"];
 
-async function adaptErrors(res: Response) {
+async function adaptErrors<T>(res: Response): Promise<T> {
   if (res.ok) {
-    return res.json();
+    return res.json() as T;
   }
 
   let errorCode: string | undefined;
   let errorMessage = "error processing request";
   try {
-    const body = await res.json();
+    const body = await res.json() as { code?: string; error?: string };
     errorCode = body.code;
-    errorMessage = body.error;
+    errorMessage = body.error ?? errorMessage;
   } catch (e) {
     // swallow
   }
