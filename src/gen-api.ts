@@ -3,16 +3,19 @@
  * Do not make direct changes to the file.
  */
 
-
 /** OneOf type helpers */
 type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
-type XOR<T, U> = (T | U) extends object ? (Without<T, U> & U) | (Without<U, T> & T) : T | U;
-type OneOf<T extends any[]> = T extends [infer Only] ? Only : T extends [infer A, infer B, ...infer Rest] ? OneOf<[XOR<A, B>, ...Rest]> : never;
+type XOR<T, U> = (T | U) extends object
+  ? (Without<T, U> & U) | (Without<U, T> & T)
+  : T | U;
+type OneOf<T extends any[]> = T extends [infer Only] ? Only
+  : T extends [infer A, infer B, ...infer Rest] ? OneOf<[XOR<A, B>, ...Rest]>
+  : never;
 
 export interface paths {
   "/machines": {
     /**
-     * Create a new machine definition. 
+     * Create a new machine definition.
      * @description Note: No instances of a machine definition can be created until
      * you create a machine definition version for it.
      */
@@ -28,25 +31,25 @@ export interface paths {
   };
   "/machines/{machineSlug}": {
     /**
-     * Create a new machine instance. 
+     * Create a new machine instance.
      * @description Create a new instance of the machine definition with the given slug.
-     * 
+     *
      * The `allowWrite` function for the machine definition version will be called
      * to authorize the initial transition and, if it fails, a 403 with code
      * `rejected-by-machine-authorizer` will be returned.
-     * 
+     *
      * Otherwise, the state of the machine instance after the initial transition
      * will be returned.
-     * 
+     *
      * All top-level events have a 10 second timeout for the machine to settle.
      * Settling means that the machine has reached a stable state and has no
      * child services running.
-     * 
+     *
      * If the machine does not settle within 10 seconds but has completed at least
      * one transition successfully, a 200 with the current state will be returned,
      * the child services will be stopped, and error events will be delivered for
      * each stopped service before the next event is sent.
-     * 
+     *
      * If a machine instance for this (`machineSlug`, instance `slug`) already exists,
      * a 409 will be returned.
      */
@@ -72,17 +75,17 @@ export interface paths {
   };
   "/machines/{machineSlug}/i/{instanceSlug}": {
     /**
-     * Get the current state of a machine instance. 
+     * Get the current state of a machine instance.
      * @description Retrieve the state of the machine instance that was previously created by
      * calling `POST /machines/{machineSlug}` and may have had events sent to it
      * by calling `POST /machines/{machineSlug}/i/{instanceSlug}/events`.
-     * 
+     *
      * The `allowRead` function for the machine definition version will be called
      * to authorize the read and, if it fails, a 403 with code
      * `rejected-by-machine-authorizer` will be returned.
-     * 
+     *
      * Otherwise, the current state of the machine instance will be returned.
-     * 
+     *
      * Obviously, the state returned may be out of date by the time it is returned
      * because reads are non-blocking but a the returned state will always be
      * self-consistent.
@@ -109,23 +112,23 @@ export interface paths {
   };
   "/machines/{machineSlug}/i/{instanceSlug}/events": {
     /**
-     * Send an event to a machine instance. 
+     * Send an event to a machine instance.
      * @description Send an event to the machine instance that was previously created by
      * calling `POST /machines/{machineSlug}`.
-     * 
+     *
      * The `allowWrite` function for the machine definition version will be called
      * to authorize the send and, if it fails, a 403 with code
      * `rejected-by-machine-authorizer` will be returned.
-     * 
+     *
      * Otherwise, the state of the machine instance after any transitions resulting
      * from the event will be returned.
-     * 
+     *
      * The request will wait for the machine to settle before returning a response.
      * Settling means that the machine has reached a stable state and has no
      * child services running.
-     * 
+     *
      * All top-level events have a 10 second timeout for the machine to settle.
-     * 
+     *
      * If the machine does not settle within 10 seconds but has completed at least
      * one transition successfully, a 200 with the current state will be returned,
      * the child services will be stopped, and error events will be delivered for
@@ -154,10 +157,10 @@ export interface paths {
   };
   "/machines/{machineSlug}/v": {
     /**
-     * Provisionally create a new machine definition version. 
+     * Provisionally create a new machine definition version.
      * @description This operation returns a code upload URL and fields that can be used
      * to upload the code for the machine definition version.
-     * 
+     *
      * Once the code is uploaded, call `PUT /machines/:machineSlug/v/:machineDefinitionVersionId`
      * with the `machineDefinitionVersionId` returned from this operation to
      * finalize the creation of the machine definition version.
@@ -169,13 +172,15 @@ export interface paths {
           machineSlug: components["schemas"]["MachineSlug"];
         };
       };
-      requestBody: components["requestBodies"]["ProvisionallyCreateMachineDefinitionVersion"];
+      requestBody: components["requestBodies"][
+        "ProvisionallyCreateMachineDefinitionVersion"
+      ];
       responses: {
         /**
          * @description The machine definition version was provisionally created successfully.
-         * 
+         *
          * Now, post the code for the machine definition version as follows:
-         * 
+         *
          * ```
          * const { codeUploadFields, codeUploadUrl } = await provisionalVersionCreationResponse.json();
          * const uploadForm = new FormData();
@@ -198,7 +203,7 @@ export interface paths {
          *   },
          * );
          * ```
-         * 
+         *
          * And then finalize the creation of the machine definition version by
          * calling `PUT /machines/:machineSlug/v/:machineDefinitionVersionId` with
          * the `machineDefinitionVersionId` returned from this operation.
@@ -223,12 +228,12 @@ export interface paths {
   };
   "/machines/{machineSlug}/v/{signedMachineVersionId}": {
     /**
-     * Finalize creation of a machine definition version. 
+     * Finalize creation of a machine definition version.
      * @description After retrieving the `machineDefinitionVersionId` and code upload
      * instructions from `POST /machines/:machineSlug/v`, and after
      * uploading the code as described, call this operation to finalize
      * the creation of the machine definition version.
-     * 
+     *
      * After this operation, you can create instances of the machine
      * definition with  this version.
      */
@@ -238,10 +243,12 @@ export interface paths {
           /** @description The slug/name for the machine definition this version is related to. */
           machineSlug: components["schemas"]["MachineSlug"];
           /** @description The signed machine version id returned from `POST /machines/:machineSlug/v`. */
-          signedMachineVersionId: components["schemas"]["SignedMachineVersionId"];
+          signedMachineVersionId:
+            components["schemas"]["SignedMachineVersionId"];
         };
       };
-      requestBody: components["requestBodies"]["CreateMachineDefinitionVersion"];
+      requestBody:
+        components["requestBodies"]["CreateMachineDefinitionVersion"];
       responses: {
         /** @description The request was malformed. */
         200: {
@@ -261,7 +268,7 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     /**
-     * @description An identifier for the machine definition. Must be unique within your organization. 
+     * @description An identifier for the machine definition. Must be unique within your organization.
      * @example my-machine
      */
     MachineSlug: string;
@@ -270,13 +277,13 @@ export interface components {
     /** @description The ID of a machine definition version. */
     MachineVersionId: string;
     /**
-     * @description An identifier for the machine instance. Must be unique within the instances for the associated machine definition. 
+     * @description An identifier for the machine instance. Must be unique within the instances for the associated machine definition.
      * @example user-1234
      */
     MachineInstanceSlug: string;
     /**
      * @description The state of the machine instance.
-     * 
+     *
      * For a machine instance with in a single, top-level state, this will be a string.
      * For a machine instance in a hierarchically-nested state, it will be an object
      * mapping parent states to child states.
@@ -296,7 +303,7 @@ export interface components {
       states: (string)[];
       /**
        * @description The public context of the machine instance.
-       * 
+       *
        * This includes all context under the `public` key.
        */
       publicContext?: {
@@ -304,10 +311,12 @@ export interface components {
       };
     };
     /** @description An event to send to a machine instance. */
-    Event: components["schemas"]["EventWithPayload"] | components["schemas"]["EventWithoutPayload"];
+    Event:
+      | components["schemas"]["EventWithPayload"]
+      | components["schemas"]["EventWithoutPayload"];
     /**
      * @description An event to send to a machine instance with a payload.
-     * 
+     *
      * Event types and payloads are user-defined for a given machine definition.
      */
     EventWithPayload: {
@@ -317,7 +326,7 @@ export interface components {
     };
     /**
      * @description An event to send to a machine.
-     * 
+     *
      * Event types are user-defined for a given machine definition.
      */
     EventWithoutPayload: string;
@@ -331,9 +340,9 @@ export interface components {
           error?: string;
           /**
            * @description A code specifying the type of error.
-           * 
+           *
            * - `specify-org` indicates that the user has access to multiple orgs and the operation requires specifying an organization. Pass the `x-statebacked-org-id` header to specify an org ID.
-           *  
+           *
            * @enum {string}
            */
           code?: "specify-org";
@@ -347,10 +356,14 @@ export interface components {
           /** @description A description of the error. */
           error?: string;
           /**
-           * @description A code specifying the type of error. 
+           * @description A code specifying the type of error.
            * @enum {string}
            */
-          code?: "missing-scope" | "rejected-by-machine-authorizer" | "missing-user" | "missing-org";
+          code?:
+            | "missing-scope"
+            | "rejected-by-machine-authorizer"
+            | "missing-user"
+            | "missing-org";
         };
       };
     };
@@ -397,7 +410,7 @@ export interface components {
     };
     /**
      * @description Request to create an instance of a machine.
-     * 
+     *
      * If machineVersionId is provided, creates an instance of the machine
      * definition version with that ID. Otherwise, creates an instance of the
      * current version of the machine definition.
