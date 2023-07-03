@@ -103,7 +103,6 @@ export const machineVersions = {
 export const machineInstances = {
   create: (
     machineName: MachineSlug,
-    instanceName: MachineInstanceSlug,
     req: CreateMachineInstanceRequest,
     signal?: AbortSignal
   ): Promise<State> =>
@@ -112,7 +111,7 @@ export const machineInstances = {
         svc.MachineInstancesService.postMachines({
           machineSlug: machineName,
           requestBody: {
-            slug: instanceName,
+            slug: req?.slug,
             context: req?.context,
             machineVersionId: req?.machineVersionId,
           },
