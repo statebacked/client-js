@@ -24,4 +24,4 @@ jobs:
 
       - run: ./scripts/gen.sh
 
-      - run: ./scripts/build.sh
+      - run: ./scripts/build.sh 0.1.0
