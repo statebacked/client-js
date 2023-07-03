@@ -21,7 +21,7 @@ send events to your instances.
 
 # Example
 
-```
+```js
 import { StateBackedClient } from "@statebacked/client";
 
 const jwtFromBackend = "..."; // create a JWT with @statebacked/token
