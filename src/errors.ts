@@ -1,7 +1,7 @@
 export class NotFoundError extends Error {
   static readonly status = 404;
 
-  constructor(message, code: string, public readonly cause?: Error) {
+  constructor(message: string, code: string, public readonly cause?: Error) {
     super(message);
 
     Object.setPrototypeOf(this, NotFoundError.prototype);
@@ -14,7 +14,7 @@ export class OrgHeaderRequiredError extends Error {
   static readonly status = 400;
   static readonly code = "specify-org";
 
-  constructor(message, public readonly cause?: Error) {
+  constructor(message: string, public readonly cause?: Error) {
     super(message);
 
     Object.setPrototypeOf(this, OrgHeaderRequiredError.prototype);
@@ -27,7 +27,7 @@ export class UnauthorizedError extends Error {
   static readonly status = 403;
 
   constructor(
-    message,
+    message: string,
     public readonly code:
       | "missing-scope"
       | "rejected-by-machine-authorizer"
@@ -47,7 +47,7 @@ export class MissingScopeError extends UnauthorizedError {
   static readonly status = 403;
   static readonly code = "missing-scope";
 
-  constructor(message, cause?: Error) {
+  constructor(message: string, cause?: Error) {
     super(message, "missing-scope", cause);
 
     Object.setPrototypeOf(this, MissingScopeError.prototype);
@@ -60,7 +60,7 @@ export class RejectedByMachineAuthorizerError extends UnauthorizedError {
   static readonly status = 403;
   static readonly code = "rejected-by-machine-authorizer";
 
-  constructor(message, cause?: Error) {
+  constructor(message: string, cause?: Error) {
     super(message, "rejected-by-machine-authorizer", cause);
 
     Object.setPrototypeOf(this, RejectedByMachineAuthorizerError.prototype);
@@ -73,7 +73,7 @@ export class MissingUserError extends UnauthorizedError {
   static readonly status = 403;
   static readonly code = "missing-user";
 
-  constructor(message, cause?: Error) {
+  constructor(message: string, cause?: Error) {
     super(message, "missing-user", cause);
 
     Object.setPrototypeOf(this, MissingUserError.prototype);
@@ -86,7 +86,7 @@ export class MissingOrgError extends UnauthorizedError {
   static readonly status = 403;
   static readonly code = "missing-org";
 
-  constructor(message) {
+  constructor(message: string) {
     super(message, "missing-org");
 
     Object.setPrototypeOf(this, MissingOrgError.prototype);
