@@ -145,6 +145,22 @@ export class StateBackedClient {
         ),
       ),
 
+    get: async (
+      machineName: MachineName,
+      machineInstanceName: MachineInstanceName,
+      signal?: AbortSignal,
+    ): Promise<GetMachineInstanceResponse> =>
+      adaptErrors<GetMachineInstanceResponse>(
+        await fetch(
+          `${this.opts.basePath}/machines/${machineName}/i/${machineInstanceName}`,
+          {
+            method: "GET",
+            headers: this.headers,
+            signal,
+          },
+        ),
+      ),
+
     sendEvent: async (
       machineName: MachineName,
       instanceName: MachineInstanceName,
@@ -200,6 +216,11 @@ export type SendEventResponse = NonNullable<
   api.paths["/machines/{machineSlug}/i/{instanceSlug}/events"]["post"][
     "responses"
   ]["200"]
+>["content"]["application/json"];
+export type GetMachineInstanceResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}"]["get"]["responses"][
+    "200"
+  ]
 >["content"]["application/json"];
 
 export type MachineName = api.components["schemas"]["MachineSlug"];
