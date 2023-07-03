@@ -1,6 +1,6 @@
 # StateBacked.dev client for web, Node, and Deno
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/statebacked/client-js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/@statebacked/client.svg?style=flat)](https://www.npmjs.com/package/@statebacked/client) [![CI](https://github.com/statebacked/client/actions/workflows/ci.yaml/badge.svg)](https://github.com/statebacked/client/actions/workflows/ci.yaml) [![Docs](https://img.shields.io/badge/docs-token-blue)](https://docs.statebacked.dev/)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/statebacked/client-js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/@statebacked/client.svg?style=flat)](https://www.npmjs.com/package/@statebacked/client) [![CI](https://github.com/statebacked/client-js/actions/workflows/ci.yaml/badge.svg)](https://github.com/statebacked/client-js/actions/workflows/ci.yaml) [![Docs](https://img.shields.io/badge/docs-token-blue)](https://docs.statebacked.dev/)
 
 [StateBacked.dev](https://statebacked.dev) runs XState machines as your secure, scalable, serverless backend.
 
