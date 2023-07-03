@@ -1,4 +1,7 @@
 import * as svc from "../gen";
+import * as errors from "./errors";
+
+export { errors };
 
 svc.OpenAPI.CREDENTIALS = "include";
 svc.OpenAPI.WITH_CREDENTIALS = true;
@@ -9,13 +12,15 @@ export const config = (token: string) => {
 
 export const machines = {
   create: (machineName: string, signal?: AbortSignal): Promise<void> =>
-    withAbort(
-      svc.MachinesService.postMachines({
-        requestBody: {
-          slug: machineName,
-        },
-      }),
-      signal
+    withStructuredErrors(
+      withAbort(
+        svc.MachinesService.postMachines({
+          requestBody: {
+            slug: machineName,
+          },
+        }),
+        signal
+      )
     ),
 };
 
@@ -24,12 +29,14 @@ export const machineVersions = {
     machineName: MachineSlug,
     signal?: AbortSignal
   ): Promise<ProvisionallyCreateVersionResponse> =>
-    withAbort(
-      svc.MachineVersionsService.postMachinesV({
-        machineSlug: machineName,
-        requestBody: {},
-      }),
-      signal
+    withStructuredErrors(
+      withAbort(
+        svc.MachineVersionsService.postMachinesV({
+          machineSlug: machineName,
+          requestBody: {},
+        }),
+        signal
+      )
     ),
 
   finalizeVersion: (
@@ -38,13 +45,15 @@ export const machineVersions = {
     req: FinalizeVersionRequest,
     signal?: AbortSignal
   ): Promise<FinalizeVersionResponse> =>
-    withAbort(
-      svc.MachineVersionsService.putMachinesV({
-        machineSlug: machineName,
-        signedMachineVersionId,
-        requestBody: req,
-      }),
-      signal
+    withStructuredErrors(
+      withAbort(
+        svc.MachineVersionsService.putMachinesV({
+          machineSlug: machineName,
+          signedMachineVersionId,
+          requestBody: req,
+        }),
+        signal
+      )
     ),
 
   createVersion: async (
@@ -98,16 +107,18 @@ export const machineInstances = {
     req: CreateMachineInstanceRequest,
     signal?: AbortSignal
   ): Promise<State> =>
-    withAbort(
-      svc.MachineInstancesService.postMachines({
-        machineSlug: machineName,
-        requestBody: {
-          slug: instanceName,
-          context: req?.context,
-          machineVersionId: req?.machineVersionId,
-        },
-      }),
-      signal
+    withStructuredErrors(
+      withAbort(
+        svc.MachineInstancesService.postMachines({
+          machineSlug: machineName,
+          requestBody: {
+            slug: instanceName,
+            context: req?.context,
+            machineVersionId: req?.machineVersionId,
+          },
+        }),
+        signal
+      )
     ),
 
   sendEvent: (
@@ -116,15 +127,17 @@ export const machineInstances = {
     req: NonNullable<SendEventRequest>,
     signal?: AbortSignal
   ): Promise<State> =>
-    withAbort(
-      svc.MachineInstancesService.postMachinesIEvents({
-        machineSlug: machineName,
-        instanceSlug: instanceName,
-        requestBody: {
-          event: req.event,
-        },
-      }),
-      signal
+    withStructuredErrors(
+      withAbort(
+        svc.MachineInstancesService.postMachinesIEvents({
+          machineSlug: machineName,
+          instanceSlug: instanceName,
+          requestBody: {
+            event: req.event,
+          },
+        }),
+        signal
+      )
     ),
 };
 
@@ -162,4 +175,28 @@ function withAbort<T>(
     signal.addEventListener("abort", () => cancellablePromise.cancel());
   }
   return cancellablePromise;
+}
+
+async function withStructuredErrors<T>(promise: Promise<T>) {
+  try {
+    return await promise;
+  } catch (e) {
+    if (e instanceof svc.ApiError) {
+      let fallback: Error = e;
+      for (const Err of Object.values(errors)) {
+        if (e.status !== Err.status) {
+          continue;
+        }
+
+        if ("code" in Err && e.body?.code === Err.code) {
+          throw new Err(e.body.error, e);
+        }
+
+        fallback = new Err(e.body?.error ?? e.message, e.body?.code, e);
+      }
+
+      throw fallback;
+    }
+    throw e;
+  }
 }
