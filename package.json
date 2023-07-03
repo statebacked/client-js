@@ -8,8 +8,9 @@
   "sideEffects": false,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc src/index.ts --strict --declaration --module commonjs --outDir lib && tsc src/index.ts --strict --declaration --module esnext --outDir es",
-    "openapi": "openapi --input ./api-spec/statebacked.openapi.v3.yaml --output gen --client fetch --useOptions --indent 2",
+    "build": "npm run gen && tsc --strict --declaration --module commonjs --outDir lib && tsc --strict --declaration --module esnext --outDir es",
+    "gen": "npm run openapi",
+    "openapi": "openapi --input ./api-spec/statebacked.openapi.v3.yaml --output gen --client axios --useOptions --indent 2",
     "prettier": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint src",
     "doc": "typedoc"
@@ -41,6 +42,7 @@
   },
   "homepage": "https://github.com/statebacked/machine-def#readme",
   "devDependencies": {
+    "@types/node": "^20.3.3",
     "@typescript-eslint/eslint-plugin": "^5.60.1",
     "@typescript-eslint/parser": "^5.60.1",
     "eslint": "^8.43.0",
@@ -48,5 +50,8 @@
     "prettier": "^2.8.8",
     "typedoc": "^0.24.8",
     "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "axios": "^1.4.0"
   }
 }
