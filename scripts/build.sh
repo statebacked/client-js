@@ -24,4 +24,4 @@ EOF
 
 fi
 
-exec docker run --rm -e "DENO_DIR=/home/${USER}/deno_dir" -v "$(pwd)/deno_dir:/home/${USER}/deno_dir" -v "$(pwd):/home/${USER}/code" --workdir="/home/${USER}/code" --user "${USER}" --entrypoint=/root/.deno/bin/deno ${tag} run --allow-env --allow-net=deno.land --allow-run=npm --allow-read --allow-write=npm ./scripts/build.ts "$@"
+exec docker run --rm -e "DENO_DIR=/home/${USER}/deno_dir" -v "$(pwd)/deno_dir:/home/${USER}/deno_dir" -v "$(pwd):/home/${USER}/code" --workdir="/home/${USER}/code" --user "${USER}" --entrypoint=/root/.deno/bin/deno ${tag} run --allow-env --allow-net=deno.land,registry.npmjs.org --allow-run --allow-read --allow-write="npm,/home/${USER}/.cache/esbuild" ./scripts/build.ts "$@"
