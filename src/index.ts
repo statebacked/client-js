@@ -4,7 +4,7 @@ import * as api from "./gen-api.ts";
 export { errors };
 
 export type ClientOpts = {
-  basePath?: string;
+  apiHost?: string;
   orgId?: string;
 };
 
@@ -13,7 +13,7 @@ export class StateBackedClient {
 
   constructor(private readonly token: string, opts?: ClientOpts) {
     this.opts = {
-      basePath: opts?.basePath ?? "https://api.statebacked.dev",
+      apiHost: opts?.apiHost ?? "https://api.statebacked.dev",
       orgId: opts?.orgId,
     };
   }
@@ -37,7 +37,7 @@ export class StateBackedClient {
 
       adaptErrors(
         await fetch(
-          `${this.opts.basePath}/machines`,
+          `${this.opts.apiHost}/machines`,
           {
             method: "POST",
             headers: this.headers,
@@ -56,7 +56,7 @@ export class StateBackedClient {
     ): Promise<ProvisionallyCreateVersionResponse> =>
       adaptErrors<ProvisionallyCreateVersionResponse>(
         await fetch(
-          `${this.opts.basePath}/machines/${machineName}/v`,
+          `${this.opts.apiHost}/machines/${machineName}/v`,
           {
             method: "POST",
             headers: this.headers,
@@ -73,7 +73,7 @@ export class StateBackedClient {
     ): Promise<FinalizeVersionResponse> =>
       adaptErrors<FinalizeVersionResponse>(
         await fetch(
-          `${this.opts.basePath}/machines/${machineName}/v/${signedMachineVersionId}`,
+          `${this.opts.apiHost}/machines/${machineName}/v/${signedMachineVersionId}`,
           {
             method: "PUT",
             headers: this.headers,
@@ -135,7 +135,7 @@ export class StateBackedClient {
     ): Promise<ProvisionallyCreateMachineVersionMigrationResponse> =>
       adaptErrors<ProvisionallyCreateMachineVersionMigrationResponse>(
         await fetch(
-          `${this.opts.basePath}/machines/${machineName}/migrations`,
+          `${this.opts.apiHost}/machines/${machineName}/migrations`,
           {
             method: "POST",
             headers: this.headers,
@@ -152,7 +152,7 @@ export class StateBackedClient {
     ): Promise<FinalizeMachineVersionMigrationResponse> =>
       adaptErrors<FinalizeMachineVersionMigrationResponse>(
         await fetch(
-          `${this.opts.basePath}/machines/${machineName}/migrations/${signedMachineVersionMigrationId}`,
+          `${this.opts.apiHost}/machines/${machineName}/migrations/${signedMachineVersionMigrationId}`,
           {
             method: "PUT",
             headers: this.headers,
@@ -211,7 +211,7 @@ export class StateBackedClient {
     ): Promise<CreateMachineInstanceResponse> =>
       adaptErrors<CreateMachineInstanceResponse>(
         await fetch(
-          `${this.opts.basePath}/machines/${machineName}`,
+          `${this.opts.apiHost}/machines/${machineName}`,
           {
             method: "POST",
             headers: this.headers,
@@ -228,7 +228,7 @@ export class StateBackedClient {
     ): Promise<GetMachineInstanceResponse> =>
       adaptErrors<GetMachineInstanceResponse>(
         await fetch(
-          `${this.opts.basePath}/machines/${machineName}/i/${machineInstanceName}`,
+          `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}`,
           {
             method: "GET",
             headers: this.headers,
@@ -245,7 +245,7 @@ export class StateBackedClient {
     ): Promise<SendEventResponse> =>
       adaptErrors<SendEventResponse>(
         await fetch(
-          `${this.opts.basePath}/machines/${machineName}/i/${instanceName}/events`,
+          `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/events`,
           {
             method: "POST",
             headers: this.headers,
