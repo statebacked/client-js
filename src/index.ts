@@ -127,6 +127,82 @@ export class StateBackedClient {
     },
   };
 
+  public readonly machineVersionMigrations = {
+    provisionallyCreate: async (
+      machineName: MachineName,
+      req: ProvisionallyCreateMachineVersionMigrationRequest,
+      signal?: AbortSignal,
+    ): Promise<ProvisionallyCreateMachineVersionMigrationResponse> =>
+      adaptErrors<ProvisionallyCreateMachineVersionMigrationResponse>(
+        await fetch(
+          `${this.opts.basePath}/machines/${machineName}/migrations`,
+          {
+            method: "POST",
+            headers: this.headers,
+            signal,
+            body: JSON.stringify(req),
+          },
+        ),
+      ),
+
+    finalize: async (
+      machineName: MachineName,
+      signedMachineVersionMigrationId: string,
+      signal?: AbortSignal,
+    ): Promise<FinalizeMachineVersionMigrationResponse> =>
+      adaptErrors<FinalizeMachineVersionMigrationResponse>(
+        await fetch(
+          `${this.opts.basePath}/machines/${machineName}/migrations/${signedMachineVersionMigrationId}`,
+          {
+            method: "PUT",
+            headers: this.headers,
+            signal,
+          },
+        ),
+      ),
+
+    createVersionMigration: async (
+      machineName: MachineName,
+      req: NonNullable<ProvisionallyCreateMachineVersionMigrationRequest> & {
+        code: string;
+      },
+      signal?: AbortSignal,
+    ): Promise<void> => {
+      const provisionalCreationRes = await this.machineVersionMigrations
+        .provisionallyCreate(machineName, req, signal);
+      const {
+        codeUploadFields,
+        codeUploadUrl,
+        machineVersionMigrationId: signedMachineVersionMigrationId,
+      } = provisionalCreationRes;
+
+      const uploadForm = new FormData();
+      for (const [key, value] of Object.entries(codeUploadFields)) {
+        uploadForm.append(key, value as string);
+      }
+      uploadForm.set("content-type", "application/javascript");
+      uploadForm.append(
+        "file",
+        new Blob([req.code], {
+          type: "application/javascript",
+        }),
+        `${machineName}_${req.fromMachineVersionId}_to_${req.toMachineVersionId}.js`,
+      );
+
+      await fetch(codeUploadUrl, {
+        method: "POST",
+        body: uploadForm,
+        signal,
+      });
+
+      await this.machineVersionMigrations.finalize(
+        machineName,
+        signedMachineVersionMigrationId,
+        signal,
+      );
+    },
+  };
+
   public readonly machineInstances = {
     create: async (
       machineName: MachineName,
@@ -180,6 +256,19 @@ export class StateBackedClient {
       ),
   };
 }
+
+export type ProvisionallyCreateMachineVersionMigrationRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/migrations"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type ProvisionallyCreateMachineVersionMigrationResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/migrations"]["post"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type FinalizeMachineVersionMigrationResponse = NonNullable<
+  api.paths[
+    "/machines/{machineSlug}/migrations/{signedMachineVersionMigrationId}"
+  ]["put"]["responses"]["200"]
+>["content"]["application/json"];
 
 export type CreateMachineRequest = NonNullable<
   api.paths["/machines"]["post"]["requestBody"]

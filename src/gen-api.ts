@@ -250,11 +250,118 @@ export interface paths {
       requestBody:
         components["requestBodies"]["CreateMachineDefinitionVersion"];
       responses: {
-        /** @description The request was malformed. */
+        /** @description The version was created. */
         200: {
           content: {
             "application/json": {
               machineVersionId: components["schemas"]["MachineVersionId"];
+            };
+          };
+        };
+      };
+    };
+  };
+  "/machines/{machineSlug}/migrations": {
+    /**
+     * Provisionally create a new machine version migration.
+     * @description This operation returns a code upload URL and fields that can be used
+     * to upload the code for the machine version migration.
+     *
+     * Once the code is uploaded, call `PUT /machines/:machineSlug/migrations/:machineVersionMigrationId`
+     * with the `machineVersionMigrationId` returned from this operation to
+     * finalize the creation of the machine version migration.
+     */
+    post: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition this version is related to. */
+          machineSlug: components["schemas"]["MachineSlug"];
+        };
+      };
+      requestBody: components["requestBodies"][
+        "ProvisionallyCreateMachineVersionMigration"
+      ];
+      responses: {
+        /**
+         * @description The machine version migration was provisionally created successfully.
+         *
+         * Now, post the code for the machine version migration as follows:
+         *
+         * ```
+         * const { codeUploadFields, codeUploadUrl } = await provisionalVersionMigrationCreationResponse.json();
+         * const uploadForm = new FormData();
+         * for (const [key, value] of Object.entries(codeUploadFields)) {
+         *   uploadForm.append(key, value as string);
+         * }
+         * uploadForm.set("content-type", "application/javascript");
+         * uploadForm.append(
+         *   "file",
+         *   new Blob(["javascript-code-here"], {
+         *     type: "application/javascript",
+         *   }),
+         *   "your-file-name.js",
+         * );
+         * const uploadRes = await fetch(
+         *   codeUploadUrl,
+         *   {
+         *     method: "POST",
+         *     body: uploadForm,
+         *   },
+         * );
+         * ```
+         *
+         * And then finalize the creation of the machine version migration by
+         * calling `PUT /machines/:machineSlug/migrations/:machineVersionMigrationId` with
+         * the `machineVersionMigrationId` returned from this operation.
+         */
+        200: {
+          content: {
+            "application/json": {
+              machineVersionMigrationId:
+                components["schemas"]["SignedMachineVersionMigrationId"];
+              /** @description The URL to upload the machine definition version code to. */
+              codeUploadUrl: string;
+              /** @description The fields that must be included as form data in the upload request. */
+              codeUploadFields: {
+                [key: string]: string | undefined;
+              };
+            };
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+  };
+  "/machines/{machineSlug}/migrations/{signedMachineVersionMigrationId}": {
+    /**
+     * Finalize creation of a machine version migration.
+     * @description After retrieving the `machineVersionMigrationId` and code upload
+     * instructions from `POST /machines/:machineSlug/migrations`, and after
+     * uploading the code as described, call this operation to finalize
+     * the creation of the machine version migration.
+     *
+     * After this operation, you can upgrade existing machine instances
+     * using this migration.
+     */
+    put: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition this version is related to. */
+          machineSlug: components["schemas"]["MachineSlug"];
+          /** @description The signed machine version id returned from `POST /machines/:machineSlug/v`. */
+          signedMachineVersionMigrationId:
+            components["schemas"]["SignedMachineVersionMigrationId"];
+        };
+      };
+      requestBody: components["requestBodies"]["CreateMachineVersionMigration"];
+      responses: {
+        /** @description The version was created. */
+        200: {
+          content: {
+            "application/json": {
+              machineVersionId?:
+                components["schemas"]["MachineVersionMigrationId"];
             };
           };
         };
@@ -274,8 +381,12 @@ export interface components {
     MachineSlug: string;
     /** @description The signed machine definition version ID. */
     SignedMachineVersionId: string;
+    /** @description The signed machine version migration ID. */
+    SignedMachineVersionMigrationId: string;
     /** @description The ID of a machine definition version. */
     MachineVersionId: string;
+    /** @description The ID of a machine version migration. */
+    MachineVersionMigrationId: string;
     /**
      * @description An identifier for the machine instance. Must be unique within the instances for the associated machine definition.
      * @example user-1234
@@ -406,6 +517,21 @@ export interface components {
            */
           makeCurrent?: boolean;
         };
+      };
+    };
+    /** @description Request to provisionally create a machine version migration. */
+    ProvisionallyCreateMachineVersionMigration?: {
+      content: {
+        "application/json": {
+          fromMachineVersionId: components["schemas"]["MachineVersionId"];
+          toMachineVersionId: components["schemas"]["MachineVersionId"];
+        };
+      };
+    };
+    /** @description Finalize creation of a machine version migration. */
+    CreateMachineVersionMigration?: {
+      content: {
+        "application/json": Record<string, never>;
       };
     };
     /**
