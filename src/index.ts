@@ -167,7 +167,7 @@ export class StateBackedClient {
         code: string;
       },
       signal?: AbortSignal,
-    ): Promise<void> => {
+    ): Promise<FinalizeMachineVersionMigrationResponse> => {
       const provisionalCreationRes = await this.machineVersionMigrations
         .provisionallyCreate(machineName, req, signal);
       const {
@@ -195,7 +195,7 @@ export class StateBackedClient {
         signal,
       });
 
-      await this.machineVersionMigrations.finalize(
+      return this.machineVersionMigrations.finalize(
         machineName,
         signedMachineVersionMigrationId,
         signal,
