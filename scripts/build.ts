@@ -23,9 +23,16 @@ await build({
     files: [
       "esm/**/*.js",
       "esm/**/*.d.ts",
+      "esm/**/*.map",
       "script/**/*.js",
       "script/**/*.d.ts",
+      "script/**/*.map",
+      "browser/**/*.js",
+      "browser/**/*.d.ts",
+      "browser/**/*.map",
     ],
+    type: "module",
+    types: "./esm/mod.d.ts",
     keywords: [
       "statechart",
       "state machine",
