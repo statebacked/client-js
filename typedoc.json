@@ -1,0 +1,14 @@
+{
+  "name": "State Backed Client",
+  "entryPoints": ["./mod.ts"],
+  "out": "doc",
+  "sidebarLinks": {
+    "State Backed": "https://statebacked.dev",
+    "State Backed Docs": "https://docs.statebacked.dev",
+    "Github": "https://github.com/statebacked/client-js"
+  },
+  "navigationLinks": {
+    "State Backed": "https://statebacked.dev"
+  },
+  "treatWarningsAsErrors": true
+}

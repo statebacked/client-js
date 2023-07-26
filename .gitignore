@@ -135,3 +135,4 @@ dist
 /lib
 /deno_dir
 /npm
+/doc

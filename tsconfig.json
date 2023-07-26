@@ -1,0 +1,8 @@
+{
+    "include": ["mod.ts", "src/**/*.ts"],
+    "compilerOptions": {
+        "moduleResolution": "NodeNext",
+        "lib": ["ES2020", "DOM"],
+        "allowImportingTsExtensions": true
+    }
+}

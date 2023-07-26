@@ -1,0 +1,52 @@
+name: Deploy docs site
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["**"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - run: git submodule update --init
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.34.3
+
+      - run: ./scripts/gen.sh --no-docker
+
+      - run: ./scripts/build.sh --no-docker 0.1.0
+
+      - run: npx --yes typedoc@0.24.8
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v2
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: "doc"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
