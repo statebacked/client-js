@@ -599,7 +599,7 @@ export interface components {
     UpdateDesiredMachineInstanceVersion?: {
       content: {
         "application/json": {
-          event?: components["schemas"]["MachineVersionId"];
+          targetMachineVersionId: components["schemas"]["MachineVersionId"];
         };
       };
     };
