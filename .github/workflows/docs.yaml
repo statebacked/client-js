@@ -2,7 +2,6 @@ name: Deploy docs site
 
 on:
   push:
-    branches: ["main"]
     tags: ["**"]
 
 permissions:
