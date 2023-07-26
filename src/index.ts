@@ -590,7 +590,7 @@ export type StateValue = api.components["schemas"]["StateValue"];
 
 async function adaptErrors<T>(res: Response): Promise<T> {
   if (res.ok) {
-    return res.json() as T;
+    return [201, 204].indexOf(res.status) >= 0 ? void 0 as T : res.json() as T;
   }
 
   let errorCode: string | undefined;
