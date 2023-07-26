@@ -135,3 +135,16 @@ export class MissingOrgError extends UnauthorizedError {
     this.name = "MissingOrgError";
   }
 }
+
+export class NoMigrationPathError extends ClientError {
+  static readonly status = 400;
+  static readonly code = "no-migration-path";
+
+  constructor(message: string, cause?: Error) {
+    super(message, NoMigrationPathError.code, cause);
+
+    Object.setPrototypeOf(this, NoMigrationPathError.prototype);
+
+    this.name = "NoMigrationPathError";
+  }
+}

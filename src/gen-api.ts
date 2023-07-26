@@ -3,15 +3,6 @@
  * Do not make direct changes to the file.
  */
 
-/** OneOf type helpers */
-type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
-type XOR<T, U> = (T | U) extends object
-  ? (Without<T, U> & U) | (Without<U, T> & T)
-  : T | U;
-type OneOf<T extends any[]> = T extends [infer Only] ? Only
-  : T extends [infer A, infer B, ...infer Rest] ? OneOf<[XOR<A, B>, ...Rest]>
-  : never;
-
 export interface paths {
   "/machines": {
     /**
@@ -151,6 +142,40 @@ export interface paths {
             "application/json": components["schemas"]["State"];
           };
         };
+        403: components["responses"]["Forbidden"];
+      };
+    };
+  };
+  "/machines/{machineSlug}/i/{instanceSlug}/v": {
+    /**
+     * Update the desired machine version for an existing instance.
+     * @description Set the desired machine version for an existing instance.
+     *
+     * The instance will not be upgraded immediately but will be upgraded
+     * the next time an event is sent to it from a settled state.
+     *
+     * A 400 with code "no-migration-path" will be returned if there is
+     * no path through the set of existing migrations from the current
+     * instance version to the desired instance version.
+     */
+    put: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition. */
+          machineSlug: components["schemas"]["MachineSlug"];
+          /** @description The slug/name for the machine instance. */
+          instanceSlug: components["schemas"]["MachineInstanceSlug"];
+        };
+      };
+      requestBody:
+        components["requestBodies"]["UpdateDesiredMachineInstanceVersion"];
+      responses: {
+        /**
+         * @description The desired version was recorded successfully and will be applied
+         * the next time an event is sent to the instance from a settled state.
+         */
+        201: never;
+        400: components["responses"]["BadRequest"];
         403: components["responses"]["Forbidden"];
       };
     };
@@ -401,9 +426,15 @@ export interface components {
      * For a machine instance in a parallel state, it will be an object with multiple
      * keys.
      */
-    StateValue: OneOf<[string, {
+    StateValue:
+      | components["schemas"]["SimpleStateValue"]
+      | components["schemas"]["CompoundStateValue"];
+    /** @description A simple state */
+    SimpleStateValue: string;
+    /** @description A compound state */
+    CompoundStateValue: {
       [key: string]: components["schemas"]["StateValue"] | undefined;
-    }]>;
+    };
     /** @description The state of a machine instance. */
     State: {
       state: components["schemas"]["StateValue"];
@@ -561,6 +592,14 @@ export interface components {
       content: {
         "application/json": {
           event: components["schemas"]["Event"];
+        };
+      };
+    };
+    /** @description Request to update the machine version for an existing instance. */
+    UpdateDesiredMachineInstanceVersion?: {
+      content: {
+        "application/json": {
+          event?: components["schemas"]["MachineVersionId"];
         };
       };
     };

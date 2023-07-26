@@ -480,8 +480,45 @@ export class StateBackedClient {
           },
         ),
       ),
+
+    /**
+     * Update the desired machine version for an existing instance.
+     *
+     * The instance will not be upgraded immediately but will be upgraded
+     * the next time an event is sent to it from a settled state.
+     *
+     * @param machineName - the name of the machine we are updating the desired version for
+     * @param instanceName - the name of the machine instance we are updating the desired version for
+     * @param req - desired version information
+     * @param signal - an optional AbortSignal to abort the request
+     *
+     * @throws errors.NoMigrationPathError if there is no path through the
+     * set of existing migrations from the current instance version to
+     * the desired instance version.
+     */
+    updateDesiredVersion: async (
+      machineName: MachineName,
+      instanceName: MachineInstanceName,
+      req: UpdateDesiredMachineInstanceVersionRequest,
+      signal?: AbortSignal,
+    ): Promise<void> =>
+      adaptErrors<void>(
+        await fetch(
+          `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/v`,
+          {
+            method: "PUT",
+            headers: this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
   };
 }
+
+export type UpdateDesiredMachineInstanceVersionRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}/v"]["put"]["requestBody"]
+>["content"]["application/json"];
 
 export type ProvisionallyCreateMachineVersionMigrationRequest = NonNullable<
   api.paths["/machines/{machineSlug}/migrations"]["post"]["requestBody"]
@@ -568,8 +605,11 @@ async function adaptErrors<T>(res: Response): Promise<T> {
 
   switch (res.status) {
     case 400:
-      if (errorCode === errors.OrgHeaderRequiredError.code) {
-        throw new errors.OrgHeaderRequiredError(errorMessage);
+      switch (errorCode) {
+        case errors.OrgHeaderRequiredError.code:
+          throw new errors.OrgHeaderRequiredError(errorMessage);
+        case errors.NoMigrationPathError.code:
+          throw new errors.NoMigrationPathError(errorMessage);
       }
       throw new errors.ClientError(errorMessage, errorCode);
     case 403:
