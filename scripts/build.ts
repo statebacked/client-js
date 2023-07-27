@@ -1,7 +1,7 @@
 import { build, emptyDir } from "https://deno.land/x/dnt@0.37.0/mod.ts";
 import * as esbuild from "https://deno.land/x/esbuild@v0.17.19/mod.js";
 import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.ts";
-import { path } from "../deno_dir/gen/https/deno.land/fb97d8b692bba4ce8979e25b115c2aa3bd01a029ff765384257cdcf4562ed7b5.js";
+import * as path from "https://deno.land/std@0.192.0/path/mod.ts";
 
 await emptyDir("./npm");
 
