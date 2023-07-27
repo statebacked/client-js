@@ -118,7 +118,7 @@ export class StateBackedClient {
    * We recommend a semantic version, timestamp, or git commit sha for a version specifier.
    *
    * Machine versions are created in a 3-step process: provisional creation to reserve an ID, code upload, and finalization.
-   * You can use the convenience wrapper, `createVersion`, to do all 3 steps in one call.
+   * You can use the convenience wrapper, `create`, to do all 3 steps in one call.
    *
    * If you want to migrate running instances from one version to another, @see machineVersionMigrations.
    */
@@ -213,7 +213,7 @@ export class StateBackedClient {
      * @param signal - an optional AbortSignal to abort the request
      * @returns machine version ID
      */
-    createVersion: async (
+    create: async (
       machineName: MachineName,
       req: NonNullable<FinalizeVersionRequest> & { code: string },
       signal?: AbortSignal,
@@ -265,6 +265,8 @@ export class StateBackedClient {
    * A machine version migration maps states and context from one machine version to another.
    *
    * Similarly to machine versions, machine version migrations are created in a 3-step process: provisional creation to reserve an ID, code upload, and finalization.
+   *
+   * However, you can use the `create` convenience wrapper to do all 3 steps in one call.
    */
   public readonly machineVersionMigrations = {
     /**
@@ -353,7 +355,7 @@ export class StateBackedClient {
      * @param signal - an optional AbortSignal to abort the request
      * @returns machine version migration ID
      */
-    createVersionMigration: async (
+    create: async (
       machineName: MachineName,
       req: NonNullable<ProvisionallyCreateMachineVersionMigrationRequest> & {
         code: string;
