@@ -239,11 +239,18 @@ export class StateBackedClient {
         `${machineName}.js`,
       );
 
-      await fetch(codeUploadUrl, {
+      const uploadResponse = await fetch(codeUploadUrl, {
         method: "POST",
         body: uploadForm,
         signal,
       });
+
+      if (!uploadResponse.ok) {
+        throw new errors.ApiError(
+          "error uploading code",
+          uploadResponse.status,
+        );
+      }
 
       return this.machineVersions.finalize(
         machineName,
@@ -383,12 +390,18 @@ export class StateBackedClient {
         `${machineName}_${req.fromMachineVersionId}_to_${req.toMachineVersionId}.js`,
       );
 
-      await fetch(codeUploadUrl, {
+      const uploadResponse = await fetch(codeUploadUrl, {
         method: "POST",
         body: uploadForm,
         signal,
       });
 
+      if (!uploadResponse.ok) {
+        throw new errors.ApiError(
+          "error uploading code",
+          uploadResponse.status,
+        );
+      }
       return this.machineVersionMigrations.finalize(
         machineName,
         signedMachineVersionMigrationId,
