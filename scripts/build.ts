@@ -1,6 +1,7 @@
 import { build, emptyDir } from "https://deno.land/x/dnt@0.37.0/mod.ts";
 import * as esbuild from "https://deno.land/x/esbuild@v0.17.19/mod.js";
 import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.ts";
+import { path } from "../deno_dir/gen/https/deno.land/fb97d8b692bba4ce8979e25b115c2aa3bd01a029ff765384257cdcf4562ed7b5.js";
 
 await emptyDir("./npm");
 
@@ -9,6 +10,7 @@ await build({
   outDir: "./npm",
   shims: {
     undici: true,
+    blob: true,
   },
   test: false,
   skipSourceOutput: true,
@@ -27,9 +29,11 @@ await build({
       "script/**/*.js",
       "script/**/*.d.ts",
       "script/**/*.map",
+      "script/package.json",
       "browser/**/*.js",
       "browser/**/*.d.ts",
       "browser/**/*.map",
+      "browser/**/package.json",
     ],
     type: "module",
     types: "./esm/mod.d.ts",
@@ -76,7 +80,7 @@ await build({
       esbuild.build({
         plugins: [...denoPlugins()],
         entryPoints: ["./mod.ts"],
-        outfile: `npm/browser/esm.js`,
+        outfile: `npm/browser/esm/statebacked-client.js`,
         bundle: true,
         sourcemap: "external",
         format: "esm",
@@ -84,11 +88,26 @@ await build({
       esbuild.build({
         plugins: [...denoPlugins()],
         entryPoints: ["./mod.ts"],
-        outfile: `npm/browser/cjs.js`,
+        outfile: `npm/browser/cjs/statebacked-client.js`,
         bundle: true,
         sourcemap: "external",
         format: "cjs",
       }),
+    ]);
+
+    const cjsPackageJson = new TextEncoder().encode(
+      JSON.stringify({ type: "commonjs" }),
+    );
+
+    await Promise.all([
+      Deno.writeFile(
+        path.join("npm", "browser", "cjs", "package.json"),
+        cjsPackageJson,
+      ),
+      Deno.writeFile(
+        path.join("npm", "script", "package.json"),
+        cjsPackageJson,
+      ),
     ]);
 
     esbuild.stop();
