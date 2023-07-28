@@ -656,7 +656,12 @@ function uploadCode(
   for (const [key, value] of Object.entries(codeUploadFields)) {
     uploadForm.append(key, value as string);
   }
+
   uploadForm.set("content-type", "application/javascript");
+  if ("gzippedCode" in req) {
+    uploadForm.set("content-encoding", "gzip");
+  }
+
   uploadForm.append(
     "file",
     new Blob(["gzippedCode" in req ? req.gzippedCode : req.code], {
@@ -664,10 +669,6 @@ function uploadCode(
     }),
     req.fileName,
   );
-
-  if ("gzippedCode" in req) {
-    uploadForm.set("content-encoding", "gzip");
-  }
 
   return fetch(codeUploadUrl, {
     method: "POST",
