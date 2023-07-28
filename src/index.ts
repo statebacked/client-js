@@ -157,11 +157,14 @@ export class StateBackedClient {
      */
     provisionallyCreate: async (
       machineName: MachineName,
+      gzip = false,
       signal?: AbortSignal,
     ): Promise<ProvisionallyCreateVersionResponse> =>
       adaptErrors<ProvisionallyCreateVersionResponse>(
         await fetch(
-          `${this.opts.apiHost}/machines/${machineName}/v`,
+          `${this.opts.apiHost}/machines/${machineName}/v${
+            gzip ? "?gzip" : ""
+          }`,
           {
             method: "POST",
             headers: this.headers,
@@ -215,35 +218,27 @@ export class StateBackedClient {
      */
     create: async (
       machineName: MachineName,
-      req: NonNullable<FinalizeVersionRequest> & { code: string },
+      req: NonNullable<FinalizeVersionRequest> & CodeReq,
       signal?: AbortSignal,
     ): Promise<FinalizeVersionResponse> => {
+      const gzip = "gzippedCode" in req;
       const provisionalCreationRes = await this.machineVersions
-        .provisionallyCreate(machineName, signal);
+        .provisionallyCreate(machineName, gzip, signal);
       const {
         codeUploadFields,
         codeUploadUrl,
         machineVersionId: signedMachineVersionId,
       } = provisionalCreationRes;
 
-      const uploadForm = new FormData();
-      for (const [key, value] of Object.entries(codeUploadFields)) {
-        uploadForm.append(key, value as string);
-      }
-      uploadForm.set("content-type", "application/javascript");
-      uploadForm.append(
-        "file",
-        new Blob([req.code], {
-          type: "application/javascript",
-        }),
-        `${machineName}.js`,
-      );
-
-      const uploadResponse = await fetch(codeUploadUrl, {
-        method: "POST",
-        body: uploadForm,
+      const uploadResponse = await uploadCode(
+        codeUploadUrl,
+        codeUploadFields,
+        {
+          ...req,
+          fileName: `${machineName}.js`,
+        },
         signal,
-      });
+      );
 
       if (!uploadResponse.ok) {
         throw new errors.ApiError(
@@ -312,11 +307,14 @@ export class StateBackedClient {
     provisionallyCreate: async (
       machineName: MachineName,
       req: ProvisionallyCreateMachineVersionMigrationRequest,
+      gzip = false,
       signal?: AbortSignal,
     ): Promise<ProvisionallyCreateMachineVersionMigrationResponse> =>
       adaptErrors<ProvisionallyCreateMachineVersionMigrationResponse>(
         await fetch(
-          `${this.opts.apiHost}/machines/${machineName}/migrations`,
+          `${this.opts.apiHost}/machines/${machineName}/migrations${
+            gzip ? "?gzip" : ""
+          }`,
           {
             method: "POST",
             headers: this.headers,
@@ -364,37 +362,30 @@ export class StateBackedClient {
      */
     create: async (
       machineName: MachineName,
-      req: NonNullable<ProvisionallyCreateMachineVersionMigrationRequest> & {
-        code: string;
-      },
+      req:
+        & NonNullable<ProvisionallyCreateMachineVersionMigrationRequest>
+        & CodeReq,
       signal?: AbortSignal,
     ): Promise<FinalizeMachineVersionMigrationResponse> => {
+      const gzip = "gzippedCode" in req;
       const provisionalCreationRes = await this.machineVersionMigrations
-        .provisionallyCreate(machineName, req, signal);
+        .provisionallyCreate(machineName, req, gzip, signal);
       const {
         codeUploadFields,
         codeUploadUrl,
         machineVersionMigrationId: signedMachineVersionMigrationId,
       } = provisionalCreationRes;
 
-      const uploadForm = new FormData();
-      for (const [key, value] of Object.entries(codeUploadFields)) {
-        uploadForm.append(key, value as string);
-      }
-      uploadForm.set("content-type", "application/javascript");
-      uploadForm.append(
-        "file",
-        new Blob([req.code], {
-          type: "application/javascript",
-        }),
-        `${machineName}_${req.fromMachineVersionId}_to_${req.toMachineVersionId}.js`,
-      );
-
-      const uploadResponse = await fetch(codeUploadUrl, {
-        method: "POST",
-        body: uploadForm,
+      const uploadResponse = await uploadCode(
+        codeUploadUrl,
+        codeUploadFields,
+        {
+          ...req,
+          fileName:
+            `${machineName}_${req.fromMachineVersionId}_to_${req.toMachineVersionId}.js`,
+        },
         signal,
-      });
+      );
 
       if (!uploadResponse.ok) {
         throw new errors.ApiError(
@@ -646,4 +637,41 @@ async function adaptErrors<T>(res: Response): Promise<T> {
   }
 
   throw new errors.ApiError(errorMessage, res.status, errorCode);
+}
+
+/**
+ * Code to upload to State Backed.
+ *
+ * Either a string of JavaScript code or a gzipped Uint8Array of JavaScript code.
+ */
+export type CodeReq = { code: string } | { gzippedCode: Uint8Array };
+
+function uploadCode(
+  codeUploadUrl: string,
+  codeUploadFields: Record<string, any>,
+  req: { fileName: string } & CodeReq,
+  signal?: AbortSignal,
+) {
+  const uploadForm = new FormData();
+  for (const [key, value] of Object.entries(codeUploadFields)) {
+    uploadForm.append(key, value as string);
+  }
+  uploadForm.set("content-type", "application/javascript");
+  uploadForm.append(
+    "file",
+    new Blob(["gzippedCode" in req ? req.gzippedCode : req.code], {
+      type: "application/javascript",
+    }),
+    req.fileName,
+  );
+
+  if ("gzippedCode" in req) {
+    uploadForm.set("content-encoding", "gzip");
+  }
+
+  return fetch(codeUploadUrl, {
+    method: "POST",
+    body: uploadForm,
+    signal,
+  });
 }

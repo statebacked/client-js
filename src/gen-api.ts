@@ -192,6 +192,10 @@ export interface paths {
      */
     post: {
       parameters: {
+        query?: {
+          /** @description Will the code be uploaded gzipped? */
+          gzip?: boolean;
+        };
         path: {
           /** @description The slug/name for the machine definition this version is related to. */
           machineSlug: components["schemas"]["MachineSlug"];
@@ -298,6 +302,10 @@ export interface paths {
      */
     post: {
       parameters: {
+        query?: {
+          /** @description Will the code be uploaded gzipped? */
+          gzip?: boolean;
+        };
         path: {
           /** @description The slug/name for the machine definition this version is related to. */
           machineSlug: components["schemas"]["MachineSlug"];
