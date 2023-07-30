@@ -31,7 +31,7 @@ export class ConflictError extends ApiError {
   constructor(message: string, code?: string, cause?: Error) {
     super(message, ConflictError.status, code, cause);
 
-    Object.setPrototypeOf(this, NotFoundError.prototype);
+    Object.setPrototypeOf(this, ConflictError.prototype);
 
     this.name = "ConflictError";
   }
