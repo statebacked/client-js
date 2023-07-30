@@ -54,8 +54,8 @@ await build({
           "require": "./script/mod.d.ts",
         },
         "browser": {
-          "import": "./browser/esm.js",
-          "require": "./browser/cjs.js",
+          "import": "./browser/esm/statebacked-client.js",
+          "require": "./browser/cjs/statebacked-client.js",
         },
         "default": {
           "import": "./esm/mod.js",
