@@ -32,4 +32,6 @@ jobs:
 
       - run: ./scripts/gen.sh --no-docker
 
+      - run: ./scripts/check.sh --no-docker
+
       - run: ./scripts/build.sh --no-docker 0.1.0
