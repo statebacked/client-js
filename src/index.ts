@@ -41,17 +41,28 @@ export type ClientOpts = {
  */
 export class StateBackedClient {
   private readonly opts: ClientOpts;
+  private readonly token: Promise<string>;
 
   constructor(
     /**
      * JWT generated using @statebacked/token and signed with an API key from `smply keys create`.
+     * Or a function returning a promise for that token.
      */
-    private readonly token: string,
+    token: string | (() => Promise<string>),
     /**
      * Options for the client.
      */
     opts?: ClientOpts,
   ) {
+    this.token = typeof token === "string"
+      ? Promise.resolve(token)
+      : token().catch((err) => {
+        throw new errors.UnauthorizedError(
+          "failed to retrieve token",
+          undefined,
+          err,
+        );
+      });
     this.opts = {
       apiHost: opts?.apiHost ?? "https://api.statebacked.dev",
       orgId: opts?.orgId,
@@ -59,11 +70,11 @@ export class StateBackedClient {
   }
 
   private get headers() {
-    return {
+    return this.token.then((token) => ({
       "content-type": "application/json",
-      "authorization": `Bearer ${this.token}`,
+      "authorization": `Bearer ${token}`,
       ...(this.opts.orgId ? { "x-statebacked-org-id": this.opts.orgId } : {}),
-    };
+    }));
   }
 
   /**
@@ -98,7 +109,7 @@ export class StateBackedClient {
           `${this.opts.apiHost}/machines`,
           {
             method: "POST",
-            headers: this.headers,
+            headers: await this.headers,
             body: JSON.stringify(req),
             signal,
           },
@@ -167,7 +178,7 @@ export class StateBackedClient {
           }`,
           {
             method: "POST",
-            headers: this.headers,
+            headers: await this.headers,
             signal,
           },
         ),
@@ -197,7 +208,7 @@ export class StateBackedClient {
           `${this.opts.apiHost}/machines/${machineName}/v/${signedMachineVersionId}`,
           {
             method: "PUT",
-            headers: this.headers,
+            headers: await this.headers,
             body: JSON.stringify(req),
             signal,
           },
@@ -317,7 +328,7 @@ export class StateBackedClient {
           }`,
           {
             method: "POST",
-            headers: this.headers,
+            headers: await this.headers,
             signal,
             body: JSON.stringify(req),
           },
@@ -344,7 +355,7 @@ export class StateBackedClient {
           `${this.opts.apiHost}/machines/${machineName}/migrations/${signedMachineVersionMigrationId}`,
           {
             method: "PUT",
-            headers: this.headers,
+            headers: await this.headers,
             signal,
           },
         ),
@@ -429,7 +440,7 @@ export class StateBackedClient {
           `${this.opts.apiHost}/machines/${machineName}`,
           {
             method: "POST",
-            headers: this.headers,
+            headers: await this.headers,
             body: JSON.stringify(req),
             signal,
           },
@@ -454,7 +465,7 @@ export class StateBackedClient {
           `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}`,
           {
             method: "GET",
-            headers: this.headers,
+            headers: await this.headers,
             signal,
           },
         ),
@@ -480,7 +491,7 @@ export class StateBackedClient {
           `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/events`,
           {
             method: "POST",
-            headers: this.headers,
+            headers: await this.headers,
             body: JSON.stringify(req),
             signal,
           },
@@ -513,7 +524,7 @@ export class StateBackedClient {
           `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/v`,
           {
             method: "PUT",
-            headers: this.headers,
+            headers: await this.headers,
             body: JSON.stringify(req),
             signal,
           },
