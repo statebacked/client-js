@@ -530,6 +530,62 @@ export class StateBackedClient {
           },
         ),
       ),
+
+    /**
+     * Convenience method to ensure that a machine instance exists.
+     *
+     * If the machine exists, it will read its state. Otherwise, it will create the machine and return its state.
+     *
+     * @param machineName - the name of the machine we are ensuring exists
+     * @param instanceName - the name of the machine instance we are ensuring exists
+     * @param creationParams - parameters to use when creating the machine instance if it doesn't exist OR function returning those parameters if they are expensive to calculate
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns the current (or initial) state and public context of the machine
+     */
+    getOrCreate: async (
+      machineName: MachineName,
+      instanceName: MachineInstanceName,
+      creationParams:
+        | Omit<CreateMachineInstanceRequest, "slug">
+        | (() => Omit<CreateMachineInstanceRequest, "slug">),
+      signal?: AbortSignal,
+    ): Promise<GetMachineInstanceResponse> => {
+      try {
+        return await this.machineInstances.get(
+          machineName,
+          instanceName,
+          signal,
+        );
+      } catch (instanceGetError) {
+        if (instanceGetError instanceof errors.NotFoundError) {
+          // create the machine if it doesn't exist
+          try {
+            const creationReq: Omit<CreateMachineInstanceRequest, "slug"> =
+              typeof creationParams === "function"
+                ? creationParams()
+                : creationParams;
+
+            return await this.machineInstances.create(machineName, {
+              ...creationReq,
+              slug: instanceName,
+            }, signal);
+          } catch (instanceCreationError) {
+            if (instanceCreationError instanceof errors.ConflictError) {
+              // the machine was created by another request between our first read and our attempt to create, read it
+              return this.machineInstances.get(
+                machineName,
+                instanceName,
+                signal,
+              );
+            }
+
+            throw instanceCreationError;
+          }
+        }
+
+        throw instanceGetError;
+      }
+    },
   };
 }
 
