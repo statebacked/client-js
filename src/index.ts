@@ -588,7 +588,34 @@ export class StateBackedClient {
     },
   };
 
+  /**
+   * Logs API.
+   *
+   * State Backed collects logs from transitions, actions, services, authorizers, and migrations.
+   * Logs are currently available approximately 1 minute after they are generated and log
+   * retention depends on your plan.
+   */
   public readonly logs = {
+    /**
+     * Retrieve a batch of up to 100 log entries.
+     * Each log entry may have multiple log lines in its `log` field.
+     *
+     * You may receive fewer than 100 log entries (or 0 entries) due to partitioning.
+     *
+     * Along with the log entries, you will receive a `maxTimestamp` field indicating
+     * the timestamp to use as your `from` parameter in your next call if you want to
+     * retrieve the next batch of logs.
+     *
+     * If the returned `maxTimestamp` matches your `from` parameter, you have retrieved
+     * all of the logs that are currently available.
+     *
+     * You should then wait 30s and try again if you want to retrieve more logs.
+     *
+     * @param from - the timestamp to start retrieving logs from
+     * @param filter - optional filter parameters to filter the logs returned
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns `logs` and `maxTimestamp`
+     */
     retrieve: async (
       from: Date,
       filter?: {
