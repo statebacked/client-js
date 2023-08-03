@@ -652,6 +652,95 @@ export class StateBackedClient {
         ),
       );
     },
+
+    /**
+     * Returns an async iterator that yields log entries as they are generated,
+     * polling in a sensible way for new entries.
+     *
+     * @see retrieve for more information on the parameters.
+     *
+     * If no `filter.to` is provided, the iterator will never end because it will
+     * continue to look for new logs.
+     *
+     * Example:
+     *
+     * ```
+     * const logs = client.logs.watch(new Date());
+     * for await (const log of logs) {
+     *   // do something with log
+     * }
+     * ```
+     *
+     * @param from - the timestamp to start retrieving logs from
+     * @param filter - optional filter parameters to filter the logs returned
+     * @param signal - an optional AbortSignal to abort the iteration. If aborted, the iterator will end and no error will be thrown.
+     * @returns An AsyncIterator that yields log entries as they are generated.
+     */
+    watch: (
+      from: Date,
+      filter?: {
+        machineName?: MachineName;
+        instanceName?: MachineInstanceName;
+        machineVersionId?: MachineVersionId;
+        to?: Date;
+      },
+      signal?: AbortSignal,
+    ): AsyncIterable<LogEntry> => {
+      // deno-lint-ignore no-this-alias
+      const _this = this;
+
+      return {
+        [Symbol.asyncIterator]() {
+          let logBatch: Array<LogEntry> = [];
+
+          return {
+            next: async () => {
+              if (signal?.aborted) {
+                return { value: undefined, done: true };
+              }
+
+              if (logBatch.length === 0) {
+                if (filter?.to && from >= filter.to) {
+                  return { value: undefined, done: true };
+                }
+
+                try {
+                  while (true) {
+                    const prevFrom = from;
+                    const nextBatch = await _this.logs.retrieve(
+                      prevFrom,
+                      filter,
+                      signal,
+                    );
+                    from = new Date(nextBatch.maxTimestamp);
+                    if (nextBatch.logs.length > 0) {
+                      logBatch = nextBatch.logs;
+                      break;
+                    } else if (
+                      nextBatch.maxTimestamp === prevFrom.toISOString()
+                    ) {
+                      // we have the latest logs. wait 30s and try again
+                      await new Promise((resolve) =>
+                        setTimeout(resolve, 30_000)
+                      );
+                      continue;
+                    }
+                  }
+                } catch (err) {
+                  if (err.name === "AbortError") {
+                    return { value: undefined, done: true };
+                  }
+
+                  throw err;
+                }
+              }
+
+              return { value: logBatch.shift()!, done: false };
+            },
+          };
+        },
+      };
+    },
   };
 }
 
