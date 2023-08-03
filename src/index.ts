@@ -587,6 +587,45 @@ export class StateBackedClient {
       }
     },
   };
+
+  public readonly logs = {
+    retrieve: async (
+      from: Date,
+      filter?: {
+        machineName?: MachineName;
+        instanceName?: MachineInstanceName;
+        machineVersionId?: MachineVersionId;
+        to?: Date;
+      },
+      signal?: AbortSignal,
+    ): Promise<LogsResponse> => {
+      const url = new URL(`${this.opts.apiHost}/logs`);
+      url.searchParams.set("from", from.toISOString());
+      if (filter?.machineName) {
+        url.searchParams.set("machine", filter.machineName);
+      }
+      if (filter?.instanceName) {
+        url.searchParams.set("instance", filter.instanceName);
+      }
+      if (filter?.machineVersionId) {
+        url.searchParams.set("version", filter.machineVersionId);
+      }
+      if (filter?.to) {
+        url.searchParams.set("to", filter.to.toISOString());
+      }
+
+      return adaptErrors<LogsResponse>(
+        await fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+  };
 }
 
 export type UpdateDesiredMachineInstanceVersionRequest = NonNullable<
@@ -647,6 +686,12 @@ export type GetMachineInstanceResponse = NonNullable<
     "200"
   ]
 >["content"]["application/json"];
+
+export type LogsResponse = NonNullable<
+  api.paths["/logs"]["get"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type LogEntry = LogsResponse["logs"][number];
 
 export type MachineName = api.components["schemas"]["MachineSlug"];
 export type MachineInstanceName =

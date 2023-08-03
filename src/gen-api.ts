@@ -401,6 +401,58 @@ export interface paths {
       };
     };
   };
+  "/logs": {
+    /**
+     * Retrieve logs for a time range.
+     * @description Retrieve logs starting at the `from` time, optionally
+     * filtered by `to`, `machine`, `instance`, and `version`.
+     *
+     * You will receive at most 100 log entries (each consisting
+     * of potentially multiple lines) but you may receive fewer
+     * entries due to various partitioning schemes.
+     *
+     * You may retry the call by specifying the returned `maxTimestamp`
+     * as the new `from` time to retrieve additional logs.
+     */
+    get: {
+      parameters: {
+        query: {
+          /** @description The ISO-8601 timestamp of the earilest-timestamped log to retrieve */
+          from: components["schemas"]["Timestamp"];
+          /** @description The ISO-8601 timestamp of the latest-timestamped log to retrieve */
+          to?: components["schemas"]["Timestamp"];
+          /** @description The name of the machine to retrieve logs for */
+          machine?: components["schemas"]["MachineSlug"];
+          /** @description The name of the machine instance to retrieve logs for */
+          instance?: components["schemas"]["MachineInstanceSlug"];
+          /** @description The id of the machine version to retrieve logs for */
+          version?: components["schemas"]["MachineVersionId"];
+        };
+      };
+      responses: {
+        /** @description The requested logs. */
+        200: {
+          content: {
+            "application/json": {
+              maxTimestamp: components["schemas"]["Timestamp"];
+              logs: ({
+                timestamp: components["schemas"]["Timestamp"];
+                /** @description The ID of the organization that owns the machines that produced this log. */
+                orgId: string;
+                machineName: components["schemas"]["MachineSlug"];
+                instanceName: components["schemas"]["MachineInstanceSlug"];
+                machineVersionId: components["schemas"]["MachineVersionId"];
+                /** @enum {string} */
+                outputType: "stdout" | "stderr";
+                /** @description Raw log output */
+                log: string;
+              })[];
+            };
+          };
+        };
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -480,6 +532,11 @@ export interface components {
      * Event types are user-defined for a given machine definition.
      */
     EventWithoutPayload: string;
+    /**
+     * Format: date-time
+     * @description A timestamp
+     */
+    Timestamp: string;
   };
   responses: {
     /** @description The request was malformed. */
