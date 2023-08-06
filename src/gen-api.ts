@@ -453,6 +453,21 @@ export interface paths {
       };
     };
   };
+  "/rt": {
+    /**
+     * Subscribe to real-time updates of machine instances.
+     * @description This is a websocket endpoint.
+     * Connect and send WSToServerMsg messages and receive WSToClientMsg messages.
+     */
+    get: {
+      parameters: {
+        query: {
+          /** @description JWT signed with your State Backed key. Same as the token typically passed in the authorization header. */
+          token: string;
+        };
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -537,6 +552,70 @@ export interface components {
      * @description A timestamp
      */
     Timestamp: string;
+    /**
+     * @description Websocket message sent to the client when an instance has been updated.
+     * Clients will receive instance update messages after subscribing to an instance.
+     */
+    WSToClientInstanceUpdateMsg: {
+      /** @constant */
+      type: "instance-update";
+      machineName: components["schemas"]["MachineSlug"];
+      machineInstanceName: components["schemas"]["MachineInstanceSlug"];
+      publicContext: {
+        [key: string]: unknown;
+      };
+      state: components["schemas"]["StateValue"];
+    };
+    /**
+     * @description Websocket message sent to the client to indicate that an error has occurred
+     * in processing a previously-sent message, identified by `requestId`.
+     */
+    WSToClientErrorMsg: {
+      /** @constant */
+      type: "error";
+      /** @description Request ID that caused the error. */
+      requestId: string;
+      /** @description HTTP status code corresponding to the error. */
+      status: number;
+      /** @description Error code */
+      code?: string;
+    };
+    /** @description Websocket messages that may be sent to the client */
+    WSToClientMsg:
+      | components["schemas"]["WSToClientInstanceUpdateMsg"]
+      | components["schemas"]["WSToClientErrorMsg"];
+    /** @description Websocket message sent to the server to subscribe to a machine instance */
+    WSToServerSubscribeToInstanceMsg: {
+      /** @constant */
+      type: "subscribe-to-instance";
+      /** @description ID for this request. Must be unique per connection. Used to associate errors with the request. */
+      requestId: string;
+      machineName: components["schemas"]["MachineSlug"];
+      machineInstanceName: components["schemas"]["MachineInstanceSlug"];
+    };
+    /** @description Websocket message sent to the server to unsubscribe from a machine instance */
+    WSToServerUnsubscribeFromInstanceMsg: {
+      /** @constant */
+      type: "unsubscribe-from-instance";
+      /** @description ID for this request. Must be unique per connection. Used to associate errors with the request. */
+      requestId: string;
+      machineName: components["schemas"]["MachineSlug"];
+      machineInstanceName: components["schemas"]["MachineInstanceSlug"];
+    };
+    /**
+     * @description Websocket message sent to the server to keep the connection and subscriptions alive.
+     * Must be sent at least every 5 minutes or the connection and subscriptions will be canceled
+     * and will need to be reestablished.
+     */
+    WSToServerPingMsg: {
+      /** @constant */
+      type: "ping";
+    };
+    /** @description Websocket messages that may be sent to the server. */
+    WSToServerMsg:
+      | components["schemas"]["WSToServerSubscribeToInstanceMsg"]
+      | components["schemas"]["WSToServerUnsubscribeFromInstanceMsg"]
+      | components["schemas"]["WSToServerPingMsg"];
   };
   responses: {
     /** @description The request was malformed. */
