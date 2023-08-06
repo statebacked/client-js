@@ -3,6 +3,8 @@ import * as api from "./gen-api.ts";
 
 export { errors };
 
+const DEFAULT_WS_PING_INTERVAL = 5 * 60 * 1000;
+
 /**
  * Options for the StateBacked client.
  */
@@ -21,6 +23,21 @@ export type ClientOpts = {
    * (the standard case), you do not need to set this.
    */
   orgId?: string;
+
+  /**
+   * WebSocket implementation to use.
+   *
+   * Defaults to globalThis.WebSocket.
+   */
+  WebSocket?: typeof WebSocket;
+
+  /**
+   * Number of milliseconds between keep alive pings on
+   * any open WebSocket connections.
+   *
+   * Defaults to 5 minutes.
+   */
+  wsPingIntervalMs?: number;
 };
 
 /**
@@ -40,8 +57,11 @@ export type ClientOpts = {
  * Then, create a State Backed client with new StateBackedClient(token);
  */
 export class StateBackedClient {
-  private readonly opts: ClientOpts;
+  private readonly opts:
+    & ClientOpts
+    & Required<Pick<ClientOpts, "WebSocket" | "wsPingIntervalMs">>;
   private readonly token: Promise<string>;
+  private ws: ReconnectingWebSocket<WSToClientMsg, WSToServerMsg> | undefined;
 
   constructor(
     /**
@@ -66,6 +86,8 @@ export class StateBackedClient {
     this.opts = {
       apiHost: opts?.apiHost ?? "https://api.statebacked.dev",
       orgId: opts?.orgId,
+      WebSocket: opts?.WebSocket ?? (globalThis as any).WebSocket,
+      wsPingIntervalMs: opts?.wsPingIntervalMs ?? DEFAULT_WS_PING_INTERVAL,
     };
   }
 
@@ -75,6 +97,48 @@ export class StateBackedClient {
       "authorization": `Bearer ${token}`,
       ...(this.opts.orgId ? { "x-statebacked-org-id": this.opts.orgId } : {}),
     }));
+  }
+
+  private async ensureWebSocketEstablished(
+    handler: (msg: WSToClientMsg) => void,
+  ) {
+    const unsubscribe = () => {
+      this.ws?.removeListener(handler);
+    };
+
+    const token = await this.token;
+
+    if (this.ws) {
+      this.ws.addListener(handler);
+      return unsubscribe;
+    }
+
+    const url = new URL(`${this.opts.apiHost}/rt`);
+    url.searchParams.set("token", token);
+    if (this.opts.orgId) {
+      url.searchParams.set("x-statebacked-org-id", this.opts.orgId);
+    }
+
+    const WS = this.opts.WebSocket;
+
+    if (!WS) {
+      throw new Error(
+        "Please provide a WebSocket implementation in the StateBackedClient constructor",
+      );
+    }
+
+    this.ws = new ReconnectingWebSocket(WS, url.toString(), () => {
+      const wsPingInterval = setInterval(() => {
+        this.ws?.send({ type: "ping" });
+      }, this.opts.wsPingIntervalMs);
+
+      return () => {
+        clearInterval(wsPingInterval);
+      };
+    });
+    this.ws.addListener(handler);
+
+    return unsubscribe;
   }
 
   /**
@@ -586,6 +650,87 @@ export class StateBackedClient {
         throw instanceGetError;
       }
     },
+
+    subscribe: (
+      machineName: MachineName,
+      machineInstanceName: MachineInstanceName,
+      onStateUpdate: (stateUpdate: GetMachineInstanceResponse) => void,
+      onError?: (err: Error) => void,
+      signal?: AbortSignal,
+    ): Unsubscribe => {
+      let wsUnsubscribe: Unsubscribe | undefined;
+      let cancelSubscription: Unsubscribe | undefined;
+      let isUnsubscribed = false;
+      const requestId = Math.random().toString(36).slice(2);
+
+      (async () => {
+        try {
+          wsUnsubscribe = await this.ensureWebSocketEstablished((msg) => {
+            switch (msg.type) {
+              case "error": {
+                if (msg.requestId !== requestId) {
+                  return;
+                }
+
+                onError?.(
+                  adaptError(
+                    msg.status,
+                    msg.code,
+                    "instance subscription error",
+                  ),
+                );
+                return;
+              }
+              case "instance-update": {
+                if (
+                  msg.machineName !== machineName ||
+                  msg.machineInstanceName !== machineInstanceName
+                ) {
+                  return;
+                }
+
+                onStateUpdate({
+                  state: msg.state,
+                  publicContext: msg.publicContext,
+                  states: [], // TODO
+                });
+                return;
+              }
+            }
+          });
+
+          if (isUnsubscribed) {
+            wsUnsubscribe();
+            return;
+          }
+
+          cancelSubscription = this.ws?.persistentSend({
+            type: "subscribe-to-instance",
+            machineName,
+            machineInstanceName,
+            requestId,
+          });
+        } catch (err) {
+          onError?.(err);
+        }
+      })();
+
+      const unsubscribe = () => {
+        isUnsubscribed = true;
+        this.ws?.send({
+          type: "unsubscribe-from-instance",
+          machineName,
+          machineInstanceName,
+          requestId,
+        });
+        cancelSubscription?.();
+        wsUnsubscribe?.();
+      };
+
+      signal?.addEventListener("abort", unsubscribe);
+
+      return unsubscribe;
+    },
   };
 
   /**
@@ -744,6 +889,9 @@ export class StateBackedClient {
   };
 }
 
+export type WSToServerMsg = api.components["schemas"]["WSToServerMsg"];
+export type WSToClientMsg = api.components["schemas"]["WSToClientMsg"];
+
 export type UpdateDesiredMachineInstanceVersionRequest = NonNullable<
   api.paths["/machines/{machineSlug}/i/{instanceSlug}/v"]["put"]["requestBody"]
 >["content"]["application/json"];
@@ -822,6 +970,8 @@ export type EventWithoutPayload =
 export type State = api.components["schemas"]["State"];
 export type StateValue = api.components["schemas"]["StateValue"];
 
+export type Unsubscribe = () => void;
+
 async function adaptErrors<T>(res: Response): Promise<T> {
   if (res.ok) {
     return [201, 204].indexOf(res.status) >= 0 ? void 0 as T : res.json() as T;
@@ -837,34 +987,42 @@ async function adaptErrors<T>(res: Response): Promise<T> {
     // swallow
   }
 
-  switch (res.status) {
+  throw adaptError(res.status, errorCode, errorMessage);
+}
+
+function adaptError(
+  status: number,
+  errorCode: string | undefined,
+  errorMessage: string,
+) {
+  switch (status) {
     case 400:
       switch (errorCode) {
         case errors.OrgHeaderRequiredError.code:
-          throw new errors.OrgHeaderRequiredError(errorMessage);
+          return new errors.OrgHeaderRequiredError(errorMessage);
         case errors.NoMigrationPathError.code:
-          throw new errors.NoMigrationPathError(errorMessage);
+          return new errors.NoMigrationPathError(errorMessage);
       }
-      throw new errors.ClientError(errorMessage, errorCode);
+      return new errors.ClientError(errorMessage, errorCode);
     case 403:
       switch (errorCode) {
         case errors.MissingOrgError.code:
-          throw new errors.MissingOrgError(errorMessage);
+          return new errors.MissingOrgError(errorMessage);
         case errors.MissingScopeError.code:
-          throw new errors.MissingScopeError(errorMessage);
+          return new errors.MissingScopeError(errorMessage);
         case errors.MissingUserError.code:
-          throw new errors.MissingUserError(errorMessage);
+          return new errors.MissingUserError(errorMessage);
         case errors.RejectedByMachineAuthorizerError.code:
-          throw new errors.RejectedByMachineAuthorizerError(errorMessage);
+          return new errors.RejectedByMachineAuthorizerError(errorMessage);
       }
-      throw new errors.UnauthorizedError(errorMessage, errorCode);
+      return new errors.UnauthorizedError(errorMessage, errorCode);
     case 404:
-      throw new errors.NotFoundError(errorMessage, errorCode);
+      return new errors.NotFoundError(errorMessage, errorCode);
     case 409:
-      throw new errors.ConflictError(errorMessage, errorCode);
+      return new errors.ConflictError(errorMessage, errorCode);
   }
 
-  throw new errors.ApiError(errorMessage, res.status, errorCode);
+  return new errors.ApiError(errorMessage, status, errorCode);
 }
 
 /**
@@ -903,4 +1061,99 @@ function uploadCode(
     body: uploadForm,
     signal,
   });
+}
+
+type OnDisconnect = () => void;
+type OnConnect = () => OnDisconnect | undefined;
+
+class ReconnectingWebSocket<Incoming, Outgoing> {
+  private ws?: WebSocket;
+  private listeners: Array<(msg: Incoming) => void> = [];
+  private state: "idle" | "connecting" | "closed" = "closed";
+  private msgQueue: Outgoing[] = [];
+  private persistentMsgs: Outgoing[] = [];
+
+  constructor(
+    private readonly WS: typeof WebSocket,
+    private readonly url: string,
+    private readonly onConnect: OnConnect,
+  ) {}
+
+  public send(msg: Outgoing) {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      this.msgQueue.push(msg);
+      return;
+    }
+
+    this.ws.send(JSON.stringify(msg));
+  }
+
+  public persistentSend(msg: Outgoing) {
+    this.persistentMsgs.push(msg);
+    this.send(msg);
+    const cancel = () => {
+      this.persistentMsgs = this.persistentMsgs.filter((m) => m !== msg);
+    };
+
+    return cancel;
+  }
+
+  private connect() {
+    if (this.state === "connecting" || this.state === "closed") {
+      return;
+    }
+
+    // TODO: check tab visibility and delay if hidden
+
+    let onDisconnect: OnDisconnect | undefined;
+    this.state = "connecting";
+    const ws = new this.WS(this.url);
+
+    ws.onopen = () => {
+      this.state = "idle";
+      this.ws = ws;
+      for (const msg of this.persistentMsgs.concat(this.msgQueue)) {
+        this.ws.send(JSON.stringify(msg));
+      }
+      this.msgQueue.splice(0, this.msgQueue.length);
+      onDisconnect = this.onConnect();
+    };
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data) as Incoming;
+        for (const listener of this.listeners) {
+          listener(msg);
+        }
+      } catch (_) {
+        // swallow
+      }
+    };
+    ws.onclose = () => {
+      this.state = "closed";
+      this.ws = undefined;
+      onDisconnect?.();
+      this.connect();
+    };
+  }
+
+  public addListener(listener: (msg: Incoming) => void) {
+    if (this.state === "closed") {
+      this.state = "idle";
+      this.connect();
+    }
+    this.listeners.push(listener);
+  }
+
+  public removeListener(listener: (msg: Incoming) => void) {
+    this.listeners = this.listeners.filter((l) => l !== listener);
+    if (this.listeners.length === 0) {
+      this.close();
+    }
+  }
+
+  public close() {
+    this.state = "closed";
+    this.ws?.close();
+    this.ws = undefined;
+  }
 }
