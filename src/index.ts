@@ -59,7 +59,7 @@ export type ClientOpts = {
 export class StateBackedClient {
   private readonly opts:
     & ClientOpts
-    & Required<Pick<ClientOpts, "WebSocket" | "wsPingIntervalMs">>;
+    & Required<Pick<ClientOpts, "wsPingIntervalMs">>;
   private readonly token: Promise<string>;
   private ws: ReconnectingWebSocket<WSToClientMsg, WSToServerMsg> | undefined;
 
@@ -86,7 +86,8 @@ export class StateBackedClient {
     this.opts = {
       apiHost: opts?.apiHost ?? "https://api.statebacked.dev",
       orgId: opts?.orgId,
-      WebSocket: opts?.WebSocket ?? (globalThis as any).WebSocket,
+      WebSocket: opts?.WebSocket ??
+        (typeof WebSocket === "undefined" ? undefined : WebSocket),
       wsPingIntervalMs: opts?.wsPingIntervalMs ?? DEFAULT_WS_PING_INTERVAL,
     };
   }
@@ -1080,7 +1081,7 @@ class ReconnectingWebSocket<Incoming, Outgoing> {
   ) {}
 
   public send(msg: Outgoing) {
-    if (this.ws?.readyState !== WebSocket.OPEN) {
+    if (this.ws?.readyState !== this.WS.OPEN) {
       this.msgQueue.push(msg);
       return;
     }
