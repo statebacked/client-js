@@ -1129,7 +1129,6 @@ class ReconnectingWebSocket<Incoming, Outgoing> {
       }
     };
     ws.onclose = () => {
-      this.state = "closed";
       this.ws = undefined;
       onDisconnect?.();
       this.connect();

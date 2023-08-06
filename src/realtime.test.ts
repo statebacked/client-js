@@ -125,6 +125,65 @@ Deno.test("send pings", async () => {
   await server;
 });
 
+Deno.test("reconnect", async () => {
+  const token = "test-token";
+  const port = 8989;
+  const abort = new AbortController();
+
+  const [onListen, whenListening] = defer();
+  const [onConnect1, whenConnect1] = defer();
+  const [onConnect2, whenConnect2] = defer();
+  const [onFinalSubscribe, whenSubscribed] = defer();
+
+  const onConnects = [onConnect1, onConnect2];
+
+  const server = serve(async (req) => {
+    const { socket, response } = await Deno.upgradeWebSocket(req);
+    socket.onopen = () => {
+      onConnects.shift()?.();
+    };
+    socket.onmessage = (event) => {
+      const msg = JSON.parse(event.data) as WSToServerMsg;
+      switch (msg.type) {
+        case "subscribe-to-instance": {
+          if (onConnects.length > 0) {
+            socket.close();
+          } else {
+            onFinalSubscribe();
+          }
+          return;
+        }
+        case "unsubscribe-from-instance": {
+          abort.abort();
+          return;
+        }
+      }
+    };
+    return response;
+  }, { port, signal: abort.signal, onListen });
+
+  await whenListening;
+
+  const client = new StateBackedClient(token, {
+    apiHost: `ws://localhost:${port}`,
+  });
+  const unsubscribe = client.machineInstances.subscribe(
+    "machine-name",
+    "inst-name",
+    () => {},
+  );
+
+  await whenConnect1;
+  // ensure we reconnect
+  await whenConnect2;
+  // and ensure we resubscribe when we reconnect
+  await whenSubscribed;
+
+  unsubscribe();
+
+  await server;
+});
+
 function defer(): [() => void, Promise<void>] {
   let resolve: () => void;
   const promise = new Promise<void>((res) => {
