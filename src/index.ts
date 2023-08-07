@@ -652,11 +652,34 @@ export class StateBackedClient {
       }
     },
 
+    /**
+     * Subscribe to state change notifications for an instance.
+     *
+     * `onStateUpdate` will be invoked right after the subscription is confirmed and
+     * on (almost) every state update thereafter until unsubscribe is called.
+     *
+     * It is possible that clients may miss some state updates (e.g. due to transitions
+     * happening during reconnects) so the only assumption client code should make is that
+     * onStateUpdate is called with the latest known state.
+     *
+     * A web socket will be established and kept open whenever at least one subscriber
+     * is active.
+     *
+     * In non-web environments, you may need to set the WebSocket implementation the client
+     * uses by passing a WebSocket option in the constructor.
+     *
+     * @param machineName - the name of the machine we are subscribing to an instance of
+     * @param machineInstanceName - the name of the instance we are subscribing to
+     * @param onStateUpdate - function to invoke with each state update
+     * @param onError - function to invoke if there is an error subscribing
+     * @param signal - optional AbortSignal. If aborted, we will unsubscribe.
+     * @returns an unsubscribe function to be called when the subscription should be canceled
+     */
     subscribe: (
       machineName: MachineName,
       machineInstanceName: MachineInstanceName,
       onStateUpdate: (stateUpdate: GetMachineInstanceResponse) => void,
-      onError?: (err: Error) => void,
+      onError?: (err: errors.ApiError) => void,
       signal?: AbortSignal,
     ): Unsubscribe => {
       let wsUnsubscribe: Unsubscribe | undefined;
