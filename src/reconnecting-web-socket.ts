@@ -1,4 +1,4 @@
-import { WebSocketCtorType, WebSocketType } from "./websocket-types.ts";
+import { WebSocketCtorType, WebSocketType } from "./web-types.ts";
 
 type OnDisconnect = () => void;
 type OnConnect = () => OnDisconnect | undefined;

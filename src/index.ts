@@ -1,7 +1,13 @@
 import * as errors from "./errors.ts";
 import * as api from "./gen-api.ts";
 import { ReconnectingWebSocket } from "./reconnecting-web-socket.ts";
-import { WebSocketCtorType } from "./websocket-types.ts";
+import {
+  BlobCtorType,
+  Fetch,
+  FormDataCtorType,
+  Response,
+  WebSocketCtorType,
+} from "./web-types.ts";
 
 export { errors };
 
@@ -27,6 +33,14 @@ export type ClientOpts = {
   orgId?: string;
 
   /**
+   * Number of milliseconds between keep alive pings on
+   * any open WebSocket connections.
+   *
+   * Defaults to 5 minutes.
+   */
+  wsPingIntervalMs?: number;
+
+  /**
    * WebSocket implementation to use.
    *
    * Defaults to globalThis.WebSocket.
@@ -34,12 +48,25 @@ export type ClientOpts = {
   WebSocket?: WebSocketCtorType;
 
   /**
-   * Number of milliseconds between keep alive pings on
-   * any open WebSocket connections.
+   * FormData implementation to use.
    *
-   * Defaults to 5 minutes.
+   * Defaults to globalThis.FormData.
    */
-  wsPingIntervalMs?: number;
+  FormData?: FormDataCtorType;
+
+  /**
+   * Blob implementation to use.
+   *
+   * Defaults to globalThis.Blob.
+   */
+  Blob?: BlobCtorType;
+
+  /**
+   * Fetch implementation to use.
+   *
+   * Defaults to globalThis.fetch.
+   */
+  fetch?: Fetch;
 };
 
 /**
@@ -61,7 +88,9 @@ export type ClientOpts = {
 export class StateBackedClient {
   private readonly opts:
     & ClientOpts
-    & Required<Pick<ClientOpts, "wsPingIntervalMs">>;
+    & Required<
+      Pick<ClientOpts, "wsPingIntervalMs" | "fetch" | "Blob" | "FormData">
+    >;
   private readonly token: Promise<string>;
   private ws: ReconnectingWebSocket<WSToClientMsg, WSToServerMsg> | undefined;
 
@@ -91,6 +120,10 @@ export class StateBackedClient {
       WebSocket: opts?.WebSocket ??
         (globalThis as any as { WebSocket: WebSocketCtorType }).WebSocket,
       wsPingIntervalMs: opts?.wsPingIntervalMs ?? DEFAULT_WS_PING_INTERVAL,
+      Blob: opts?.Blob ?? (globalThis as any as { Blob: BlobCtorType }).Blob,
+      FormData: opts?.FormData ??
+        (globalThis as any as { FormData: FormDataCtorType }).FormData,
+      fetch: opts?.fetch ?? (globalThis as any as { fetch: Fetch }).fetch,
     };
   }
 
@@ -172,7 +205,7 @@ export class StateBackedClient {
       };
 
       adaptErrors(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines`,
           {
             method: "POST",
@@ -239,7 +272,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<ProvisionallyCreateVersionResponse> =>
       adaptErrors<ProvisionallyCreateVersionResponse>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}/v${
             gzip ? "?gzip" : ""
           }`,
@@ -271,7 +304,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<FinalizeVersionResponse> =>
       adaptErrors<FinalizeVersionResponse>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}/v/${signedMachineVersionId}`,
           {
             method: "PUT",
@@ -309,6 +342,7 @@ export class StateBackedClient {
       } = provisionalCreationRes;
 
       const uploadResponse = await uploadCode(
+        this.opts,
         codeUploadUrl,
         codeUploadFields,
         {
@@ -389,7 +423,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<ProvisionallyCreateMachineVersionMigrationResponse> =>
       adaptErrors<ProvisionallyCreateMachineVersionMigrationResponse>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}/migrations${
             gzip ? "?gzip" : ""
           }`,
@@ -418,7 +452,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<FinalizeMachineVersionMigrationResponse> =>
       adaptErrors<FinalizeMachineVersionMigrationResponse>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}/migrations/${signedMachineVersionMigrationId}`,
           {
             method: "PUT",
@@ -455,6 +489,7 @@ export class StateBackedClient {
       } = provisionalCreationRes;
 
       const uploadResponse = await uploadCode(
+        this.opts,
         codeUploadUrl,
         codeUploadFields,
         {
@@ -503,7 +538,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<CreateMachineInstanceResponse> =>
       adaptErrors<CreateMachineInstanceResponse>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}`,
           {
             method: "POST",
@@ -528,7 +563,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<GetMachineInstanceResponse> =>
       adaptErrors<GetMachineInstanceResponse>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}`,
           {
             method: "GET",
@@ -554,7 +589,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<SendEventResponse> =>
       adaptErrors<SendEventResponse>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/events`,
           {
             method: "POST",
@@ -587,7 +622,7 @@ export class StateBackedClient {
       signal?: AbortSignal,
     ): Promise<void> =>
       adaptErrors<void>(
-        await fetch(
+        await this.opts.fetch(
           `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/v`,
           {
             method: "PUT",
@@ -813,7 +848,7 @@ export class StateBackedClient {
       }
 
       return adaptErrors<LogsResponse>(
-        await fetch(
+        await this.opts.fetch(
           url,
           {
             method: "GET",
@@ -1067,12 +1102,13 @@ function adaptError(
 export type CodeReq = { code: string } | { gzippedCode: Uint8Array };
 
 function uploadCode(
+  deps: Required<Pick<ClientOpts, "Blob" | "FormData" | "fetch">>,
   codeUploadUrl: string,
   codeUploadFields: Record<string, any>,
   req: { fileName: string } & CodeReq,
   signal?: AbortSignal,
 ) {
-  const uploadForm = new FormData();
+  const uploadForm = new deps.FormData();
   for (const [key, value] of Object.entries(codeUploadFields)) {
     uploadForm.append(key, value as string);
   }
@@ -1084,13 +1120,13 @@ function uploadCode(
 
   uploadForm.append(
     "file",
-    new Blob(["gzippedCode" in req ? req.gzippedCode : req.code], {
+    new deps.Blob(["gzippedCode" in req ? req.gzippedCode : req.code], {
       type: "application/javascript",
     }),
     req.fileName,
   );
 
-  return fetch(codeUploadUrl, {
+  return deps.fetch(codeUploadUrl, {
     method: "POST",
     body: uploadForm,
     signal,
