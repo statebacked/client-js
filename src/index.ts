@@ -859,6 +859,12 @@ export class StateBackedClient {
       // deno-lint-ignore no-this-alias
       const _this = this;
 
+      const abortPromise = signal && new Promise((resolve) => {
+        signal.addEventListener("abort", () => {
+          resolve(undefined);
+        });
+      });
+
       return {
         [Symbol.asyncIterator]() {
           let logBatch: Array<LogEntry> = [];
@@ -890,9 +896,7 @@ export class StateBackedClient {
                       nextBatch.maxTimestamp === prevFrom.toISOString()
                     ) {
                       // we have the latest logs. wait 30s and try again
-                      await new Promise((resolve) =>
-                        setTimeout(resolve, 30_000)
-                      );
+                      await Promise.race([delayPromise(30_000), abortPromise]);
                       continue;
                     }
                   }
@@ -912,6 +916,10 @@ export class StateBackedClient {
       };
     },
   };
+}
+
+function delayPromise(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export type WSToServerMsg = api.components["schemas"]["WSToServerMsg"];
