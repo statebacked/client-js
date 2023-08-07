@@ -4,8 +4,8 @@ import { ReconnectingWebSocket } from "./reconnecting-web-socket.ts";
 import {
   BlobCtorType,
   Fetch,
+  FetchResponseType,
   FormDataCtorType,
-  Response,
   WebSocketCtorType,
 } from "./web-types.ts";
 
@@ -1041,7 +1041,7 @@ export type StateValue = api.components["schemas"]["StateValue"];
 
 export type Unsubscribe = () => void;
 
-async function adaptErrors<T>(res: Response): Promise<T> {
+async function adaptErrors<T>(res: FetchResponseType): Promise<T> {
   if (res.ok) {
     return [201, 204].indexOf(res.status) >= 0 ? void 0 as T : res.json() as T;
   }

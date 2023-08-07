@@ -2,6 +2,7 @@
  * WebSocket class type.
  */
 export interface WebSocketCtorType {
+  new (url: null): WebSocketType; // just for node ws
   new (url: string, protocols?: string | string[] | undefined): WebSocketType;
 
   readonly CLOSED: number;
@@ -16,16 +17,28 @@ export interface WebSocketCtorType {
 export interface WebSocketType {
   readyState: number;
 
-  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void;
+  send(data: string): void;
   close(code?: number, reason?: string): void;
 
   onclose:
-    | ((ev: Event & { code: number; reason: string; wasClean: boolean }) => any)
+    | ((
+      ev: Event & {
+        code: number;
+        reason: string;
+        wasClean: boolean;
+        target: { send: (data: string) => void };
+      },
+    ) => any)
     | null;
   onerror: ((ev: Event) => any) | null;
   onmessage:
     | ((
-      ev: Event & { data: string; lastEventId: string; ports: Array<any> },
+      ev: Event & {
+        data: string;
+        lastEventId: string;
+        ports: Array<any>;
+        target: { send: (data: string) => void };
+      },
     ) => any)
     | null;
   onopen: ((ev: Event) => any) | null;
@@ -38,12 +51,21 @@ export interface Fetch {
   (
     input: URL | string,
     init?: RequestInit,
-  ): Promise<Response>;
+  ): Promise<FetchResponseType>;
 }
 
 interface RequestInit {
   readonly headers?: Record<string, string>;
-  readonly body?: string | Blob | FormData | null;
+  readonly body?:
+    | ArrayBuffer
+    | AsyncIterable<Uint8Array>
+    | Blob
+    | FormData
+    | Iterable<Uint8Array>
+    | ArrayBufferView
+    | URLSearchParams
+    | null
+    | string;
   readonly method?: string;
   readonly signal?: AbortSignal;
 }
@@ -51,7 +73,7 @@ interface RequestInit {
 /**
  * fetch Response
  */
-export interface Response {
+export interface FetchResponseType {
   readonly ok: boolean;
   readonly status: number;
 
@@ -63,7 +85,7 @@ export interface Response {
  */
 export interface BlobCtorType {
   new (
-    blobParts?: Array<Uint8Array | string>,
+    blobParts: Array<Uint8Array | string>,
     options?: { type?: string },
   ): Blob;
 }
@@ -86,7 +108,12 @@ export interface FormDataCtorType {
   new (): FormData;
 }
 
-type FormDataEntryValue = string | Blob;
+type FormDataEntryValue = string | Blob | File;
+
+type File = Blob & {
+  readonly name: string;
+  readonly lastModified: number;
+};
 
 /**
  * FormData
@@ -99,7 +126,7 @@ interface FormData {
   has(name: string): boolean;
   set(name: string, value: string | Blob, fileName?: string): void;
   keys(): IterableIterator<string>;
-  values(): IterableIterator<string>;
+  values(): IterableIterator<FormDataEntryValue>;
   entries(): IterableIterator<[string, FormDataEntryValue]>;
   [Symbol.iterator](): IterableIterator<[string, FormDataEntryValue]>;
   forEach(
