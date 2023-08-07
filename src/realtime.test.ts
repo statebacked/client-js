@@ -9,6 +9,7 @@ import {
   WSToClientMsg,
   WSToServerMsg,
 } from "./index.ts";
+import { defer } from "./defer.ts";
 
 Deno.test("receive subscription items", async () => {
   const token = "test-token";
@@ -183,11 +184,3 @@ Deno.test("reconnect", async () => {
 
   await server;
 });
-
-function defer(): [() => void, Promise<void>] {
-  let resolve: () => void;
-  const promise = new Promise<void>((res) => {
-    resolve = res;
-  });
-  return [resolve!, promise];
-}
