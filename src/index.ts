@@ -1,6 +1,7 @@
 import * as errors from "./errors.ts";
 import * as api from "./gen-api.ts";
 import { ReconnectingWebSocket } from "./reconnecting-web-socket.ts";
+import { WebSocketCtorType } from "./websocket-types.ts";
 
 export { errors };
 
@@ -30,7 +31,7 @@ export type ClientOpts = {
    *
    * Defaults to globalThis.WebSocket.
    */
-  WebSocket?: typeof WebSocket;
+  WebSocket?: WebSocketCtorType;
 
   /**
    * Number of milliseconds between keep alive pings on
@@ -88,7 +89,7 @@ export class StateBackedClient {
       apiHost: opts?.apiHost ?? "https://api.statebacked.dev",
       orgId: opts?.orgId,
       WebSocket: opts?.WebSocket ??
-        (typeof WebSocket === "undefined" ? undefined : WebSocket),
+        (globalThis as any as { WebSocket: WebSocketCtorType }).WebSocket,
       wsPingIntervalMs: opts?.wsPingIntervalMs ?? DEFAULT_WS_PING_INTERVAL,
     };
   }

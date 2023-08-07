@@ -1,15 +1,17 @@
+import { WebSocketCtorType, WebSocketType } from "./websocket-types.ts";
+
 type OnDisconnect = () => void;
 type OnConnect = () => OnDisconnect | undefined;
 
 export class ReconnectingWebSocket<Incoming, Outgoing> {
-  private ws?: WebSocket;
+  private ws?: WebSocketType;
   private listeners: Array<(msg: Incoming) => void> = [];
   private state: "idle" | "connecting" | "closed" = "closed";
   private msgQueue: Outgoing[] = [];
   private persistentMsgs: Outgoing[] = [];
 
   constructor(
-    private readonly WS: typeof WebSocket,
+    private readonly WS: WebSocketCtorType,
     private readonly url: string,
     private readonly onConnect: OnConnect,
   ) {}

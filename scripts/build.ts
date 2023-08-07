@@ -12,9 +12,6 @@ await build({
     undici: true,
     blob: true,
   },
-  compilerOptions: {
-    lib: ["DOM"],
-  },
   test: false,
   skipSourceOutput: true,
   typeCheck: "both",
