@@ -1,4 +1,5 @@
 import {
+  assert,
   assertEquals,
   fail,
 } from "https://deno.land/std@0.192.0/testing/asserts.ts";
@@ -64,6 +65,7 @@ Deno.test("receive subscription items", async () => {
     (stateUpdate) => {
       assertEquals(stateUpdate.publicContext, { token });
       assertEquals(stateUpdate.state, expectedStates.shift());
+      assert(stateUpdate.states.length > 0);
 
       if (expectedStates.length === 0) {
         unsubscribe();

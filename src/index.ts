@@ -8,6 +8,7 @@ import {
   FormDataCtorType,
   WebSocketCtorType,
 } from "./web-types.ts";
+import { EnhancedState, enhanceState } from "./state-utils.ts";
 
 export { errors };
 
@@ -536,16 +537,18 @@ export class StateBackedClient {
       machineName: MachineName,
       req: CreateMachineInstanceRequest,
       signal?: AbortSignal,
-    ): Promise<CreateMachineInstanceResponse> =>
-      adaptErrors<CreateMachineInstanceResponse>(
-        await this.opts.fetch(
-          `${this.opts.apiHost}/machines/${machineName}`,
-          {
-            method: "POST",
-            headers: await this.headers,
-            body: JSON.stringify(req),
-            signal,
-          },
+    ): Promise<EnhancedState> =>
+      enhanceState(
+        await adaptErrors<CreateMachineInstanceResponse>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}`,
+            {
+              method: "POST",
+              headers: await this.headers,
+              body: JSON.stringify(req),
+              signal,
+            },
+          ),
         ),
       ),
 
@@ -561,15 +564,17 @@ export class StateBackedClient {
       machineName: MachineName,
       machineInstanceName: MachineInstanceName,
       signal?: AbortSignal,
-    ): Promise<GetMachineInstanceResponse> =>
-      adaptErrors<GetMachineInstanceResponse>(
-        await this.opts.fetch(
-          `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}`,
-          {
-            method: "GET",
-            headers: await this.headers,
-            signal,
-          },
+    ): Promise<EnhancedState> =>
+      enhanceState(
+        await adaptErrors<GetMachineInstanceResponse>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}`,
+            {
+              method: "GET",
+              headers: await this.headers,
+              signal,
+            },
+          ),
         ),
       ),
 
@@ -587,16 +592,18 @@ export class StateBackedClient {
       instanceName: MachineInstanceName,
       req: SendEventRequest,
       signal?: AbortSignal,
-    ): Promise<SendEventResponse> =>
-      adaptErrors<SendEventResponse>(
-        await this.opts.fetch(
-          `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/events`,
-          {
-            method: "POST",
-            headers: await this.headers,
-            body: JSON.stringify(req),
-            signal,
-          },
+    ): Promise<EnhancedState> =>
+      enhanceState(
+        await adaptErrors<SendEventResponse>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/events`,
+            {
+              method: "POST",
+              headers: await this.headers,
+              body: JSON.stringify(req),
+              signal,
+            },
+          ),
         ),
       ),
 
@@ -651,7 +658,7 @@ export class StateBackedClient {
         | Omit<CreateMachineInstanceRequest, "slug">
         | (() => Omit<CreateMachineInstanceRequest, "slug">),
       signal?: AbortSignal,
-    ): Promise<GetMachineInstanceResponse> => {
+    ): Promise<EnhancedState> => {
       try {
         return await this.machineInstances.get(
           machineName,
@@ -750,11 +757,10 @@ export class StateBackedClient {
                   return;
                 }
 
-                onStateUpdate({
+                onStateUpdate(enhanceState({
                   state: msg.state,
                   publicContext: msg.publicContext,
-                  states: [], // TODO
-                });
+                }));
                 return;
               }
             }
