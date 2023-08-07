@@ -1,3 +1,6 @@
+/**
+ * WebSocket class type.
+ */
 export interface WebSocketCtorType {
   new (url: string, protocols?: string | string[] | undefined): WebSocketType;
 
@@ -7,6 +10,9 @@ export interface WebSocketCtorType {
   readonly OPEN: number;
 }
 
+/**
+ * WebSocket instance type.
+ */
 export interface WebSocketType {
   readyState: number;
 

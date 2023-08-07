@@ -36,6 +36,9 @@ jobs:
 
       - run: ./scripts/build.sh --no-docker 0.1.0
 
+      # TODO: would prefer using typedoc --exclude **/*.test.ts
+      - run: rm src/*.test.ts
+
       - run: npx --yes typedoc@0.24.8
 
       - name: Setup Pages
