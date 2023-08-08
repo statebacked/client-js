@@ -63,6 +63,45 @@ export interface paths {
         409: components["responses"]["Conflict"];
       };
     };
+    /**
+     * Delete a machine and any versions and migrations associated with it.
+     * @description Delete a machine and any versions and migrations associated with it.
+     *
+     * *THIS IS OBVIOUSLY A DANGEROUS OPERATION AND WILL INTENTIONALLY CAUSE DATA LOSS*
+     *
+     * If any instances exist for the machine, a 409 error will be returned with an `invalid-state` code.
+     * You can delete the instances and then retry the machine deletion.
+     *
+     * All versions associated with the machine and all migrations between those versions
+     * will be deleted.
+     *
+     * There is no option to recover data after a machine is deleted.
+     *
+     * To prevent accidental deletion, we require two validation parameters:
+     *   - hmacSha256OfMachineNameWithMachineNameKey - `base64urlEncode(hmacSha256(key = "machine name", "machine name"))`
+     *   - dangerDataWillBeDeletedForever - true
+     *
+     * A 400 error with the `parameter` set to the name of the incorrect parameter will be returned
+     * if the validation parameters are incorrect.
+     *
+     * This endpoint requires admin access.
+     */
+    delete: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition to delete. */
+          machineSlug: components["schemas"]["MachineSlug"];
+        };
+      };
+      requestBody: components["requestBodies"]["DeleteMachine"];
+      responses: {
+        /** @description The machine instance was deleted successfully. */
+        200: never;
+        400: components["responses"]["BadRequest"];
+        403: components["responses"]["Forbidden"];
+        409: components["responses"]["Conflict"];
+      };
+    };
   };
   "/machines/{machineSlug}/i/{instanceSlug}": {
     /**
@@ -97,6 +136,43 @@ export interface paths {
             "application/json": components["schemas"]["State"];
           };
         };
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    /**
+     * Delete a machine instance and any transitions, state, or pending upgrades associated with it.
+     * @description Delete a machine instance and any transitions, state, or pending upgrades associated with it.
+     *
+     * *THIS IS OBVIOUSLY A DANGEROUS OPERATION AND WILL INTENTIONALLY CAUSE DATA LOSS*
+     *
+     * All historical transitions associated with the machine and all current state and context
+     * will be deleted.
+     *
+     * There is no option to recover data after an instance is deleted.
+     *
+     * To prevent accidental deletion, we require two validation parameters:
+     *   - hmacSha256OfMachineInstanceNameWithMachineNameKey - `base64urlEncode(hmacSha256(key = "machine name", "machine instance name"))`
+     *   - dangerDataWillBeDeletedForever - true
+     *
+     * A 400 error with the `parameter` set to the name of the incorrect parameter will be returned
+     * if the validation parameters are incorrect.
+     *
+     * This endpoint requires admin access.
+     */
+    delete: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition to delete. */
+          machineSlug: components["schemas"]["MachineSlug"];
+          /** @description The slug/name for the machine instance. */
+          instanceSlug: components["schemas"]["MachineInstanceSlug"];
+        };
+      };
+      requestBody: components["requestBodies"]["DeleteMachineInstance"];
+      responses: {
+        /** @description The machine instance was deleted successfully. */
+        200: never;
+        400: components["responses"]["BadRequest"];
         403: components["responses"]["Forbidden"];
       };
     };
@@ -177,6 +253,48 @@ export interface paths {
         201: never;
         400: components["responses"]["BadRequest"];
         403: components["responses"]["Forbidden"];
+      };
+    };
+  };
+  "/machines/{machineSlug}/i/{instanceSlug}/status": {
+    /**
+     * Update the status of a machine instance
+     * @description Set the status of the machine.
+     *
+     * Machines in the 'paused' status will reject any events sent to them
+     * with a 409 error with a code of "invalid-state".
+     *
+     * 'running' instances will accept events normally.
+     *
+     * It is **dangerous** to set an instance's status to 'paused'!
+     * You will drop events and, because delayed events are only retried
+     * 5 times (with ~30 seconds between each try), some delayed events
+     * may be dropped and **never** sent to your machine.
+     *
+     * This exists **purely** to stop a runaway machine instance that is
+     * stuck in a loop of creating too many events.
+     *
+     * This endpoint requires admin access.
+     */
+    put: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition. */
+          machineSlug: components["schemas"]["MachineSlug"];
+          /** @description The slug/name for the machine instance. */
+          instanceSlug: components["schemas"]["MachineInstanceSlug"];
+        };
+      };
+      requestBody: components["requestBodies"]["UpdateMachineInstanceStatus"];
+      responses: {
+        /**
+         * @description The desired version was recorded successfully and will be applied
+         * the next time an event is sent to the instance from a settled state.
+         */
+        201: never;
+        400: components["responses"]["BadRequest"];
+        403: components["responses"]["Forbidden"];
+        409: components["responses"]["Conflict"];
       };
     };
   };
@@ -493,6 +611,11 @@ export interface components {
      */
     MachineInstanceSlug: string;
     /**
+     * @description The status of a machine instance.
+     * @enum {string}
+     */
+    MachineInstanceStatus: "running" | "paused";
+    /**
      * @description The state of the machine instance.
      *
      * For a machine instance with in a single, top-level state, this will be a string.
@@ -628,10 +751,13 @@ export interface components {
            * @description A code specifying the type of error.
            *
            * - `specify-org` indicates that the user has access to multiple orgs and the operation requires specifying an organization. Pass the `x-statebacked-org-id` header to specify an org ID.
+           * - `invalid-parameter` indicates that one of the provided parameters was incorrect
            *
            * @enum {string}
            */
-          code?: "specify-org";
+          code?: "specify-org" | "invalid-parameter";
+          /** @description The name of the invalid parameter */
+          parameter?: string;
         };
       };
     };
@@ -656,7 +782,15 @@ export interface components {
     /** @description The resource already exists. */
     Conflict: {
       content: {
-        "application/json": Record<string, never>;
+        "application/json": {
+          /**
+           * @description Machine-readable identifier for the type of error
+           * @enum {string}
+           */
+          code?: "invalid-state";
+          /** @description Human-readable identifier for the error */
+          error?: string;
+        };
       };
     };
   };
@@ -744,6 +878,52 @@ export interface components {
       content: {
         "application/json": {
           targetMachineVersionId: components["schemas"]["MachineVersionId"];
+        };
+      };
+    };
+    /** @description Request to update the status of an existing instance. */
+    UpdateMachineInstanceStatus?: {
+      content: {
+        "application/json": {
+          status: components["schemas"]["MachineInstanceStatus"];
+        };
+      };
+    };
+    /** @description Validation parameters to prove that you really do want to delete the machine. */
+    DeleteMachine?: {
+      content: {
+        "application/json": {
+          /**
+           * @description Just to ensure that you understand the ramifications of this action.
+           * @constant
+           */
+          dangerDataWillBeDeletedForever: true;
+          /**
+           * @description This parameter serves to verify that you have read the documentation prior to
+           * deleting a machine and have taken the time to consider whether you really want to do so.
+           *
+           * Provide `base64urlEncode(hmacSha256(key = "machine name", "machine name"))`
+           */
+          hmacSha256OfMachineNameWithMachineNameKey: string;
+        };
+      };
+    };
+    /** @description Validation parameters to prove that you really do want to delete the instance. */
+    DeleteMachineInstance?: {
+      content: {
+        "application/json": {
+          /**
+           * @description Just to ensure that you understand the ramifications of this action.
+           * @constant
+           */
+          dangerDataWillBeDeletedForever: true;
+          /**
+           * @description This parameter serves to verify that you have read the documentation prior to
+           * deleting a machine and have taken the time to consider whether you really want to do so.
+           *
+           * Provide `base64urlEncode(hmacSha256(key = "machine name", "machine instance name"))`
+           */
+          hmacSha256OfMachineInstanceNameWithMachineNameKey: string;
         };
       };
     };
