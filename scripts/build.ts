@@ -11,6 +11,7 @@ await build({
   shims: {
     undici: true,
     blob: true,
+    crypto: true,
   },
   test: false,
   skipSourceOutput: true,
