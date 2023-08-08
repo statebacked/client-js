@@ -1,7 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
-import { serve } from "https://deno.land/std@0.192.0/http/mod.ts";
 import { StateBackedClient } from "./index.ts";
-import { defer } from "./defer.ts";
+import { testServer } from "./test-server.ts";
 
 Deno.test("get instance", async () => {
   const port = 8686;
@@ -17,24 +16,21 @@ Deno.test("get instance", async () => {
     hello: "world",
   };
 
-  const [onListen, whenListening] = defer();
-  const abort = new AbortController();
-
-  const server = serve((req) => {
-    assertEquals(
-      new URL(req.url).pathname,
-      `/machines/${machineName}/i/${instanceName}`,
-    );
-    return new Response(
-      JSON.stringify({
-        state: expectedState,
-        publicContext: expectedPublicContext,
-      }),
-      { status: 200 },
-    );
-  }, { onListen, signal: abort.signal, port });
-
-  await whenListening;
+  const [abort, server] = await testServer(port, [
+    (req) => {
+      assertEquals(
+        new URL(req.url).pathname,
+        `/machines/${machineName}/i/${instanceName}`,
+      );
+      return new Response(
+        JSON.stringify({
+          state: expectedState,
+          publicContext: expectedPublicContext,
+        }),
+        { status: 200 },
+      );
+    },
+  ]);
 
   const client = new StateBackedClient(() => Promise.resolve("fake-token"), {
     apiHost: `http://localhost:${port}`,
@@ -69,28 +65,25 @@ Deno.test("create instance", async () => {
     hello: "world",
   };
 
-  const [onListen, whenListening] = defer();
-  const abort = new AbortController();
+  const [abort, server] = await testServer(port, [
+    async (req) => {
+      assertEquals(new URL(req.url).pathname, `/machines/${machineName}`);
+      const body = await req.json();
 
-  const server = serve(async (req) => {
-    assertEquals(new URL(req.url).pathname, `/machines/${machineName}`);
-    const body = await req.json();
+      assertEquals(body, {
+        slug: instanceName,
+        context: { public: expectedPublicContext },
+      });
 
-    assertEquals(body, {
-      slug: instanceName,
-      context: { public: expectedPublicContext },
-    });
-
-    return new Response(
-      JSON.stringify({
-        state: expectedState,
-        publicContext: expectedPublicContext,
-      }),
-      { status: 200 },
-    );
-  }, { onListen, signal: abort.signal, port });
-
-  await whenListening;
+      return new Response(
+        JSON.stringify({
+          state: expectedState,
+          publicContext: expectedPublicContext,
+        }),
+        { status: 200 },
+      );
+    },
+  ]);
 
   const client = new StateBackedClient(() => Promise.resolve("fake-token"), {
     apiHost: `http://localhost:${port}`,
@@ -128,9 +121,6 @@ Deno.test("get or create instance", async () => {
     hello: "world",
   };
 
-  const [onListen, whenListening] = defer();
-  const abort = new AbortController();
-
   const matchers = [
     (req: Request) => {
       assertEquals(
@@ -158,11 +148,7 @@ Deno.test("get or create instance", async () => {
     },
   ];
 
-  const server = serve((req) => {
-    return matchers.shift()!(req);
-  }, { onListen, signal: abort.signal, port });
-
-  await whenListening;
+  const [abort, server] = await testServer(port, matchers);
 
   const client = new StateBackedClient(() => Promise.resolve("fake-token"), {
     apiHost: `http://localhost:${port}`,
@@ -203,9 +189,6 @@ Deno.test("get or create instance with race", async () => {
     hello: "world",
   };
 
-  const [onListen, whenListening] = defer();
-  const abort = new AbortController();
-
   const matchers = [
     (req: Request) => {
       assertEquals(
@@ -241,11 +224,7 @@ Deno.test("get or create instance with race", async () => {
     },
   ];
 
-  const server = serve((req) => {
-    return matchers.shift()!(req);
-  }, { onListen, signal: abort.signal, port });
-
-  await whenListening;
+  const [abort, server] = await testServer(port, matchers);
 
   const client = new StateBackedClient(() => Promise.resolve("fake-token"), {
     apiHost: `http://localhost:${port}`,
