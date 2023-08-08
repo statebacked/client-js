@@ -146,6 +146,31 @@ export class StateBackedClient {
         (globalThis as any as { FormData: FormDataCtorType }).FormData,
       fetch: opts?.fetch ?? (globalThis as any as { fetch: Fetch }).fetch,
       hmacSha256: opts?.hmacSha256 ?? (async (key, data) => {
+        // this is to make node happy with the typings
+        // even though modern node has a crypto global
+        const crypto = (globalThis as any).crypto as {
+          subtle: {
+            importKey: (
+              format: "raw",
+              keyData: Uint8Array,
+              algorithm: { name: "HMAC"; hash: { name: "SHA-256" } },
+              exportable: boolean,
+              usages: ["sign"],
+            ) => Promise<any>;
+            sign: (
+              algorithm: "HMAC",
+              key: any,
+              data: Uint8Array,
+            ) => Promise<ArrayBuffer>;
+          };
+        } | undefined;
+
+        if (!crypto) {
+          throw new Error(
+            "Please provide an hmacSha256 implementation in the StateBackedClient constructor",
+          );
+        }
+
         const cryptoKey = await crypto.subtle.importKey(
           "raw",
           key,
