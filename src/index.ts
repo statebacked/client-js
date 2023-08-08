@@ -68,6 +68,18 @@ export type ClientOpts = {
    * Defaults to globalThis.fetch.
    */
   fetch?: Fetch;
+
+  /**
+   * HMAC SHA256 implementation to use.
+   *
+   * Should return the HMAC SHA256 of the data using the key.
+   */
+  hmacSha256?: (key: Uint8Array, data: Uint8Array) => Promise<Uint8Array>;
+
+  /**
+   * Base64url implementation to use.
+   */
+  base64url?: (data: Uint8Array) => string;
 };
 
 /**
@@ -90,7 +102,15 @@ export class StateBackedClient {
   private readonly opts:
     & ClientOpts
     & Required<
-      Pick<ClientOpts, "wsPingIntervalMs" | "fetch" | "Blob" | "FormData">
+      Pick<
+        ClientOpts,
+        | "wsPingIntervalMs"
+        | "fetch"
+        | "Blob"
+        | "FormData"
+        | "hmacSha256"
+        | "base64url"
+      >
     >;
   private readonly token: Promise<string>;
   private ws: ReconnectingWebSocket<WSToClientMsg, WSToServerMsg> | undefined;
@@ -125,6 +145,32 @@ export class StateBackedClient {
       FormData: opts?.FormData ??
         (globalThis as any as { FormData: FormDataCtorType }).FormData,
       fetch: opts?.fetch ?? (globalThis as any as { fetch: Fetch }).fetch,
+      hmacSha256: opts?.hmacSha256 ?? (async (key, data) => {
+        const cryptoKey = await crypto.subtle.importKey(
+          "raw",
+          key,
+          {
+            name: "HMAC",
+            hash: { name: "SHA-256" },
+          },
+          true,
+          ["sign"],
+        );
+        const sig = await crypto.subtle.sign(
+          "HMAC",
+          cryptoKey,
+          data,
+        );
+
+        return new Uint8Array(sig);
+      }),
+      base64url: opts?.base64url ?? ((data) => {
+        const binString = Array.from(data, (x) => String.fromCodePoint(x)).join(
+          "",
+        );
+        return btoa(binString).replace(/[+]/g, "-").replace(/[\/]/g, "_")
+          .replace(/=/g, "");
+      }),
     };
   }
 
@@ -216,6 +262,62 @@ export class StateBackedClient {
           },
         ),
       );
+    },
+
+    /**
+     * The methods within machines.dangerous are... **DANGEROUS**.
+     *
+     * They are intended to be used in development or in very exceptional circumstances
+     * in production.
+     *
+     * These methods can cause data loss.
+     */
+    dangerously: {
+      /**
+       * Deletes a machine.
+       *
+       * **THIS WILL OBVIOUSLY CAUSE DATA LOSS**
+       *
+       * Deleted machines are not recoverable and deleting a machine deletes its associated
+       * versions and the migrations between them.
+       *
+       * Machines cannot be deleted if there are still instances of them running.
+       * You may delete instances of machines using @see machineInstances.dangerously.delete.
+       *
+       * @param machineName - the name of the machine we are deleting an instance of
+       * @param machineInstanceName - the name of the machine instance we are deleting
+       * @param req - confirmation that you are permanently deleting data
+       * @param signal - an optional AbortSignal to abort the request
+       */
+      delete: async (
+        machineName: MachineName,
+        req: { dangerDataWillBeDeletedForever: true },
+        signal?: AbortSignal,
+      ): Promise<void> => {
+        const hmac = await this.opts.hmacSha256(
+          new TextEncoder().encode(machineName),
+          new TextEncoder().encode(machineName),
+        );
+
+        const fullReq: DeleteMachineRequest = {
+          ...req,
+          hmacSha256OfMachineNameWithMachineNameKey: await this.opts.base64url(
+            hmac,
+          ),
+        };
+
+        await adaptErrors<void>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}`,
+            {
+              method: "DELETE",
+              headers: await this.headers,
+              body: JSON.stringify(fullReq),
+              signal,
+            },
+          ),
+        );
+      },
     },
   };
 
@@ -798,6 +900,95 @@ export class StateBackedClient {
 
       return unsubscribe;
     },
+
+    /**
+     * The methods within machineInstances.dangerous are... **DANGEROUS**.
+     *
+     * They are intended to be used in development or in very exceptional circumstances
+     * in production.
+     *
+     * These methods can cause data loss and are the only mechanisms through which you
+     * can cause a machine instance to enter an invalid state.
+     */
+    dangerously: {
+      /**
+       * Pauses or resumes a machine instance.
+       *
+       * **PAUSE WITH CARE**
+       *
+       * Pausing a machine instance will cause it to reject all events until it is resumed,
+       * including rejecting scheduled/delayed events. Scheduled events are only retried
+       * 5 times (~30 seconds apart) before they are permanently dropped so it is possible
+       * to invalidate the typical guarantees that your machine provides by pausing an instance.
+       *
+       * @param machineName - the name of the machine we are pausing/resuming an instance of
+       * @param machineInstanceName - the name of the machine instance we are pausing/resuming
+       * @param req - status information
+       * @param signal - an optional AbortSignal to abort the request
+       */
+      setStatus: async (
+        machineName: MachineName,
+        machineInstanceName: MachineInstanceName,
+        req: SetInstanceStatusRequest,
+        signal?: AbortSignal,
+      ): Promise<void> =>
+        adaptErrors<void>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}/status`,
+            {
+              method: "PUT",
+              headers: await this.headers,
+              body: JSON.stringify(req),
+              signal,
+            },
+          ),
+        ),
+
+      /**
+       * Deletes a machine instance.
+       *
+       * **THIS WILL OBVIOUSLY CAUSE DATA LOSS**
+       *
+       * Deleted machine instances are not recoverable.
+       *
+       * All historical transitions, scheduled events, pending upgrades, and current state
+       * will be irrevocably deleted.
+       *
+       * @param machineName - the name of the machine we are deleting an instance of
+       * @param machineInstanceName - the name of the machine instance we are deleting
+       * @param req - confirmation that you are permanently deleting data
+       * @param signal - an optional AbortSignal to abort the request
+       */
+      delete: async (
+        machineName: MachineName,
+        machineInstanceName: MachineInstanceName,
+        req: { dangerDataWillBeDeletedForever: true },
+        signal?: AbortSignal,
+      ): Promise<void> => {
+        const hmac = await this.opts.hmacSha256(
+          new TextEncoder().encode(machineName),
+          new TextEncoder().encode(machineInstanceName),
+        );
+
+        const fullReq: DeleteMachineInstanceRequest = {
+          ...req,
+          hmacSha256OfMachineInstanceNameWithMachineNameKey: await this.opts
+            .base64url(hmac),
+        };
+
+        await adaptErrors<void>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}`,
+            {
+              method: "DELETE",
+              headers: await this.headers,
+              body: JSON.stringify(fullReq),
+              signal,
+            },
+          ),
+        );
+      },
+    },
   };
 
   /**
@@ -1024,6 +1215,22 @@ export type GetMachineInstanceResponse = NonNullable<
   api.paths["/machines/{machineSlug}/i/{instanceSlug}"]["get"]["responses"][
     "200"
   ]
+>["content"]["application/json"];
+
+export type SetInstanceStatusRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}/status"]["put"][
+    "requestBody"
+  ]
+>["content"]["application/json"];
+
+export type DeleteMachineInstanceRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}"]["delete"][
+    "requestBody"
+  ]
+>["content"]["application/json"];
+
+export type DeleteMachineRequest = NonNullable<
+  api.paths["/machines/{machineSlug}"]["delete"]["requestBody"]
 >["content"]["application/json"];
 
 export type LogsResponse = NonNullable<

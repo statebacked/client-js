@@ -96,7 +96,7 @@ export interface paths {
       requestBody: components["requestBodies"]["DeleteMachine"];
       responses: {
         /** @description The machine instance was deleted successfully. */
-        200: never;
+        204: never;
         400: components["responses"]["BadRequest"];
         403: components["responses"]["Forbidden"];
         409: components["responses"]["Conflict"];
@@ -171,7 +171,7 @@ export interface paths {
       requestBody: components["requestBodies"]["DeleteMachineInstance"];
       responses: {
         /** @description The machine instance was deleted successfully. */
-        200: never;
+        204: never;
         400: components["responses"]["BadRequest"];
         403: components["responses"]["Forbidden"];
       };
@@ -287,11 +287,8 @@ export interface paths {
       };
       requestBody: components["requestBodies"]["UpdateMachineInstanceStatus"];
       responses: {
-        /**
-         * @description The desired version was recorded successfully and will be applied
-         * the next time an event is sent to the instance from a settled state.
-         */
-        201: never;
+        /** @description The instance status was set. */
+        204: never;
         400: components["responses"]["BadRequest"];
         403: components["responses"]["Forbidden"];
         409: components["responses"]["Conflict"];
