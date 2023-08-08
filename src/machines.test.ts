@@ -3,7 +3,7 @@ import {
   assertEquals,
 } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import { StateBackedClient } from "./index.ts";
-import { testServer } from "./test-server.ts";
+import { testServer } from "./server.test.ts";
 import {
   decode as b64Decode,
 } from "https://deno.land/std@0.192.0/encoding/base64url.ts";
