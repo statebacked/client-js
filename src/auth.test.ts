@@ -80,6 +80,20 @@ async function testAuthToken(
   const instanceName = "inst";
   const expectedToken = "fake-token";
 
+  const instanceGetHandler = (req: Request) => {
+    assertEquals(
+      req.headers.get("authorization"),
+      `Bearer ${expectedToken}`,
+    );
+
+    return new Response(
+      JSON.stringify({
+        state: "fake-state",
+      }),
+      { status: 200 },
+    );
+  };
+
   const [abort, server] = await testServer(
     port,
     [
@@ -122,25 +136,19 @@ async function testAuthToken(
           );
         }
         : null,
-      (req: Request) => {
-        assertEquals(
-          req.headers.get("authorization"),
-          `Bearer ${expectedToken}`,
-        );
-
-        return new Response(
-          JSON.stringify({
-            state: "fake-state",
-          }),
-          { status: 200 },
-        );
-      },
+      instanceGetHandler,
+      // 2 to make sure we don't re-retrieve the token unnecessarily
+      instanceGetHandler,
     ].filter(<T>(x: T | null): x is T => !!x),
   );
 
   const client = getClient(expectedToken, port);
 
-  await client.machineInstances.get(machineName, instanceName);
+  // ensure we don't re-retrieve the token during concurrent requests
+  await Promise.all([
+    client.machineInstances.get(machineName, instanceName),
+    client.machineInstances.get(machineName, instanceName),
+  ]);
 
   abort.abort();
   await server;

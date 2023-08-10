@@ -151,6 +151,7 @@ export class StateBackedClient {
       >
     >;
   private latestToken: string | undefined;
+  private inProgressTokenPromise: Promise<string> | undefined;
   private ws: ReconnectingWebSocket<WSToClientMsg, WSToServerMsg> | undefined;
 
   constructor(
@@ -202,52 +203,70 @@ export class StateBackedClient {
     };
   }
 
-  private async token() {
+  private token() {
     if (this.latestToken) {
-      return this.latestToken;
+      return Promise.resolve(this.latestToken);
     }
 
+    if (!this.inProgressTokenPromise) {
+      this.inProgressTokenPromise = this.refreshToken();
+    }
+
+    return this.inProgressTokenPromise.then((token) => {
+      this.latestToken = token;
+      this.inProgressTokenPromise = undefined;
+      return token;
+    });
+  }
+
+  private async refreshToken() {
     const tokenConfig = this.tokenConfig;
 
     if (typeof tokenConfig === "string") {
       // supports the old API where you could pass a token directly
-      this.latestToken = tokenConfig;
-    } else if (typeof tokenConfig === "function") {
+      return tokenConfig;
+    }
+
+    if (typeof tokenConfig === "function") {
       // supports the old API where you could pass a token function directly
-      this.latestToken = await tokenConfig().catch((err) => {
+      return tokenConfig().catch((err) => {
         throw new errors.UnauthorizedError(
           "failed to retrieve token",
           undefined,
           err,
         );
       });
-    } else if (
+    }
+
+    if (
       "token" in tokenConfig && typeof tokenConfig.token === "string"
     ) {
-      this.latestToken = tokenConfig.token;
-    } else if (
+      return tokenConfig.token;
+    }
+
+    if (
       "token" in tokenConfig && typeof tokenConfig.token === "function"
     ) {
-      this.latestToken = await tokenConfig.token().catch((err) => {
+      return tokenConfig.token().catch((err) => {
         throw new errors.UnauthorizedError(
           "failed to retrieve token",
           undefined,
           err,
         );
       });
-    } else if ("identityProviderToken" in tokenConfig) {
-      this.latestToken = await this.tokens.exchange({
+    }
+
+    if ("identityProviderToken" in tokenConfig) {
+      return this.tokens.exchange({
         orgId: tokenConfig.orgId,
         service: tokenConfig.tokenProviderService,
         token: typeof tokenConfig.identityProviderToken === "string"
           ? tokenConfig.identityProviderToken
           : await tokenConfig.identityProviderToken(),
       });
-    } else {
-      throw new errors.UnauthorizedError("invalid token configuration");
     }
 
-    return this.latestToken;
+    throw new errors.UnauthorizedError("invalid token configuration");
   }
 
   private get nonAuthJSONHeaders() {
