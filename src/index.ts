@@ -1092,11 +1092,13 @@ export class StateBackedClient {
       // deno-lint-ignore no-this-alias
       const _this = this;
 
-      const abortPromise = signal && new Promise((resolve) => {
-        signal.addEventListener("abort", () => {
-          resolve(undefined);
-        });
-      });
+      const abortPromise = signal
+        ? new Promise((resolve) => {
+          signal.addEventListener("abort", () => {
+            resolve(undefined);
+          });
+        })
+        : neverSettled();
 
       return {
         [Symbol.asyncIterator]() {
@@ -1345,3 +1347,14 @@ function uploadCode(
     signal,
   });
 }
+
+const neverSettled = (() => {
+  let p: Promise<never> | undefined;
+
+  return () => {
+    if (!p) {
+      p = new Promise<never>(() => {});
+    }
+    return p;
+  };
+})();
