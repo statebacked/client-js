@@ -583,6 +583,176 @@ export interface paths {
       };
     };
   };
+  "/idps": {
+    /**
+     * Upsert an identity provider
+     * @description Token exchange involves exchanging an identity provider-signed token for a
+     * State Backed-signed token. By adding an identity provider configuration to
+     * State Backed, you are instructing State Backed to trust any valid token
+     * from that identity provider when evaluating whether to allow a token exchange.
+     * You are also extracting the claims from that token that you want to make available
+     * to your token providers to include in the State Backed token.
+     *
+     * For example, if you are using Auth0 as your identity provider, you can configure
+     * State Backed to trust your Auth0 tokens by calling:
+     *
+     * ```bash
+     * curl -XPOST https://statebacked.dev/idps \
+     *   -H 'authorization: Bearer sbsk_...'
+     *   --data '{
+     *     "aud": "https://<your-auth0-domain>.us.auth0.com/api/v2/",
+     *     "iss": "https://<your-auth0-domain>.us.auth0.com/",
+     *     "jwksUrl": "https://<your-auth0-domain>.us.auth0.com/.well-known/jwks.json",
+     *     "algs": ["RS256"],
+     *     "mapping": {
+     *       "sub.$": "$.sub",
+     *       "email.$": "$.email",
+     *       "provider": "auth0",
+     *     }
+     *   }'
+     * ```
+     *
+     * State Backed uses the audience (`aud`) and issuer (`iss`) claims in any tokens
+     * provided for exchange to identify the identity provider to use for verification.
+     *
+     * In this example, token providers would be have access to `sub`, `email`, and `provider`
+     * claims that they could include in the resultant State Backed token.
+     *
+     * Upserts may change algorithms, mappings, keys or jwksUrls.
+     *
+     * This endpoint requires admin access.
+     */
+    post: {
+      requestBody: components["requestBodies"]["UpsertIdentityProvider"];
+      responses: {
+        /** @description The identity provider was created or updated. */
+        204: never;
+      };
+    };
+    /**
+     * Delete an identity provider
+     * @description Delete the identity provider and immediately reject any token exchange
+     * requests that provide tokens signed by the idp.
+     */
+    delete: {
+      requestBody: components["requestBodies"]["DeleteIdentityProvider"];
+      responses: {
+        /** @description The identity provider was deleted. */
+        204: never;
+      };
+    };
+  };
+  "/token-providers": {
+    /**
+     * Upsert a token provider
+     * @description Token exchange involves exchanging an identity provider-signed token for a
+     * State Backed-signed token.
+     *
+     * Token providers are responsible for creating State Backed tokens from a standardized
+     * claim set extracted from identity provider tokens by their mappings.
+     *
+     * Token providers are identified by a service name.
+     * You might, for instance, want a service name for each application that you host
+     * with State Backed.
+     *
+     * Token providers also specify the State Backed key to use to sign the tokens they
+     * generate and a mapping that creates the claims for the generated token.
+     *
+     * For example, if your identity provider mappings extract claims like this:
+     *
+     * ```
+     * {
+     *   "sub": "your-sub",
+     *   "email": "your-email",
+     *   "provider": "identity-provider"
+     * }
+     * ```
+     *
+     * you could create a token provider like this:
+     *
+     * ```bash
+     * curl -XPOST https://statebacked.dev/token-providers \
+     *   -H 'authorization: Bearer sbsk_...'
+     *   --data '{
+     *     "keyId": "sbk_...", // ID for a previously-created State Backed key
+     *     "service": "your-app", any identifier for your token provider
+     *     "mapping": {
+     *       "sub.$": "$.sub",
+     *       "email.$": "$.email",
+     *       "provider.$": "$.provider",
+     *     }
+     *   }'
+     * ```
+     *
+     * That token provider would allow you to exchange any of your identity provider-
+     * signed tokens for a State Backed token that includes the sub, email, and provider
+     * claims, all of which would be available for your use in `allowRead` and `allowWrite`
+     * functions in your machine definitions.
+     *
+     * Upserts may change key ids and mappings.
+     *
+     * This endpoint requires admin access.
+     */
+    post: {
+      requestBody: components["requestBodies"]["UpsertTokenProvider"];
+      responses: {
+        /** @description The token provider was created or updated. */
+        204: never;
+      };
+    };
+  };
+  "/token-providers/{service}": {
+    /**
+     * Delete a token provider
+     * @description Delete the token provider and immediately reject any token exchange
+     * requests that request tokens using the token provider's service.
+     */
+    delete: {
+      parameters: {
+        path: {
+          /** @description The service identifier for the token provider to delete */
+          service: string;
+        };
+      };
+      responses: {
+        /** @description The token provider was deleted. */
+        204: never;
+      };
+    };
+  };
+  "/tokens": {
+    /**
+     * Exchange an identity provider-signed token for a State Backed token
+     * @description Once you have configured at least one identity provider (by posting to /idps)
+     * and at least one token provider (by posting to /token-providers), you can exchange
+     * any identity provider token for a token generated by one of your token providers.
+     *
+     * This allows you to have completely secure, end-to-end authorization with your
+     * State Backed machine instances without any server-side code while using your
+     * identity provider of choice.
+     *
+     * This endpoint should generally conform to https://datatracker.ietf.org/doc/html/rfc8693
+     */
+    post: {
+      requestBody: components["requestBodies"]["ExchangeToken"];
+      responses: {
+        /** @description Your State Backed token */
+        200: {
+          content: {
+            "application/json": {
+              /** @description Your State Backed access token. */
+              access_token: string;
+              /** @constant */
+              issued_token_type:
+                "urn:ietf:params:oauth:token-type:access_token";
+              /** @constant */
+              token_type: "Bearer";
+            };
+          };
+        };
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -921,6 +1091,119 @@ export interface components {
            * Provide `base64urlEncode(hmacSha256(key = "machine name", "machine instance name"))`
            */
           hmacSha256OfMachineInstanceNameWithMachineNameKey: string;
+        };
+      };
+    };
+    /** @description Identity provider configuration */
+    UpsertIdentityProvider?: {
+      content: {
+        "application/json": {
+          /** @description base64url-encoded key to use to verify token signatures (one of key or jwksUrl must be provided) */
+          key?: string;
+          /** @description Absolute URL at which to find a JWKS key set to verify token signatures (one of key or jwksUrl must be provided) */
+          jwksUrl?: string;
+          /** @description The audience claim that identifies tokens from this identity provider (one of aud or iss must be provided) */
+          aud?: string;
+          /** @description The issuer claim that identifies tokens from this identity provider (one of aud or iss must be provided) */
+          iss?: string;
+          /** @description Allowed signing algorithms */
+          algs: (
+            | "HS256"
+            | "HS384"
+            | "HS512"
+            | "PS256"
+            | "PS384"
+            | "PS512"
+            | "RS256"
+            | "RS384"
+            | "RS512"
+            | "ES256"
+            | "ES384"
+            | "ES512"
+            | "EdDSA"
+          )[];
+          /**
+           * @description A mapping object that extracts claims from the identity provider tokens that token providers
+           * can reference when creating the claims for State Backed tokens.
+           *
+           * The values of properties that end in ".$" are treated as JSONPath references into the
+           * claim set of the provided token.
+           *
+           * So a mapping of `{ "sub.$": "$.sub" }` with identity provider claims of `{ "sub": "user-123" }`
+           * will result in `{ "sub": "user-123" }` as the input claims into any token provider.
+           */
+          mapping: {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+    /** @description Identity provider to delete */
+    DeleteIdentityProvider?: {
+      content: {
+        "application/json": {
+          /** @description Audience for the identity provider (at least one of aud or iss must be provided). */
+          aud?: string;
+          /** @description Issuer for the identity provider (at least one of aud or iss must be provided). */
+          iss?: string;
+        };
+      };
+    };
+    /** @description Token provider configuration */
+    UpsertTokenProvider?: {
+      content: {
+        "application/json": {
+          /**
+           * @description ID of the State Backed key (created using smply keys create or posting to /keys)
+           * to use to sign  tokens created by this token provider.
+           */
+          keyId: string;
+          /** @description The name of this token provider. This name is used to request tokens from the /tokens endpoint */
+          service: string;
+          /**
+           * @description A mapping object that creates the claim set for the State Backed token and may reference
+           * the claims extracted by the identity provider mappings.
+           *
+           * The values of properties that end in ".$" are treated as JSONPath references into the
+           * claim set of the provided token.
+           *
+           * So a mapping of `{ "sub.$": "$.sub" }` with identity provider claims of `{ "sub": "user-123" }`
+           * will result in `{ "sub": "user-123" }` as the State Backed token claims.
+           */
+          mapping: {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+    /** @description Exchange an identity provider-signed token for a State Backed token. */
+    ExchangeToken?: {
+      content: {
+        "application/x-www-form-urlencoded": {
+          /**
+           * @description The type of grant being requested
+           * @constant
+           */
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange";
+          /**
+           * @description Identifies the token provider service to use to generate the token.
+           *
+           * Must be of the form: `https://tokens.statebacked.dev/<your-org-id>/<token-provider-service-id>`
+           *
+           * Where `your-org-id` can be found via `smply orgs list` and `token-provider-service-id`
+           * is the `service` that you passed in your post to /token-providers.
+           *
+           * @example https://tokens.statebacked.dev/org_yourorg/your-service
+           */
+          audience: string;
+          /**
+           * @description The type of token being requested
+           * @constant
+           */
+          "requested_token-type"?:
+            "urn:ietf:params:oauth:token-type:access_token";
+          /** @description A JWT signed by one of your configured identity providers (based on configurations posted to /idps) */
+          subject_token: string;
         };
       };
     };
