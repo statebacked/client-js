@@ -1350,6 +1350,34 @@ export class StateBackedClient {
         ),
       ),
   };
+
+  public readonly tokens = {
+    exchange: async (
+      req: TokenExchangeRequest,
+      signal?: AbortSignal,
+    ): Promise<string> =>
+      (await adaptErrors<TokenExchangeResponse>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/tokens`,
+          {
+            method: "POST",
+            headers: {
+              ...(await this.headers),
+              "content-type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+              audience:
+                `https://tokens.statebacked.dev/${req.orgId}/${req.service}`,
+              requested_token_type:
+                "urn:ietf:params:oauth:token-type:access_token",
+              subject_token: req.token,
+            }).toString(),
+            signal,
+          },
+        ),
+      )).access_token,
+  };
 }
 
 function delayPromise(ms: number) {
@@ -1450,6 +1478,16 @@ export type DeleteIdentityProviderRequest = NonNullable<
 
 export type UpsertTokenProviderRequest = NonNullable<
   api.paths["/token-providers"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+export type TokenExchangeRequest = {
+  orgId: string;
+  service: string;
+  token: string;
+};
+
+type TokenExchangeResponse = NonNullable<
+  api.paths["/tokens"]["post"]["responses"]["200"]
 >["content"]["application/json"];
 
 export type MachineName = api.components["schemas"]["MachineSlug"];
