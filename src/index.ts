@@ -151,6 +151,7 @@ export class StateBackedClient {
       >
     >;
   private latestToken: string | undefined;
+  private tokenExpiration: number | undefined;
   private inProgressTokenPromise: Promise<string> | undefined;
   private ws: ReconnectingWebSocket<WSToClientMsg, WSToServerMsg> | undefined;
 
@@ -209,9 +210,31 @@ export class StateBackedClient {
     });
   }
 
+  private tokenIsExpired() {
+    return this.tokenExpiration && this.tokenExpiration < Date.now() - 1_000;
+  }
+
+  private setToken(token: string) {
+    this.latestToken = token;
+
+    try {
+      const jwt = JSON.parse(atob(token.split(".")[1]));
+      if (typeof jwt.exp === "number") {
+        this.tokenExpiration = jwt.exp * 1000;
+      }
+    } catch (_) {
+      // ignore, we just won't set our token expiration
+    }
+  }
+
   private token() {
     if (this.latestToken) {
-      return Promise.resolve(this.latestToken);
+      if (!this.tokenIsExpired()) {
+        return Promise.resolve(this.latestToken);
+      }
+
+      this.latestToken = undefined;
+      // continue as though we don't have the token
     }
 
     if (!this.inProgressTokenPromise) {
@@ -219,7 +242,7 @@ export class StateBackedClient {
     }
 
     return this.inProgressTokenPromise.then((token) => {
-      this.latestToken = token;
+      this.setToken(token);
       this.inProgressTokenPromise = undefined;
       return token;
     });
