@@ -12,9 +12,10 @@ import {
 } from "./index.ts";
 import { defer } from "./defer.ts";
 
+const port = 7006;
+
 Deno.test("receive subscription items", async () => {
   const token = "test-token";
-  const port = 8989;
   const machineName = "my-machine";
   const machineInstanceName = "my-machine-instance";
   const expectedStates: Array<StateValue> = [{ foo: "bar" }, { bar: "foo" }];
@@ -78,7 +79,6 @@ Deno.test("receive subscription items", async () => {
 
 Deno.test("send pings", async () => {
   const token = "test-token";
-  const port = 8989;
   const pingTimeout = 100;
   const failureTimeout = pingTimeout + 100;
   const abort = new AbortController();
@@ -130,7 +130,6 @@ Deno.test("send pings", async () => {
 
 Deno.test("reconnect", async () => {
   const token = "test-token";
-  const port = 8989;
   const abort = new AbortController();
 
   const [onListen, whenListening] = defer();

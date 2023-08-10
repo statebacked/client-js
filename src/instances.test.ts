@@ -8,8 +8,9 @@ import {
   decode as b64Decode,
 } from "https://deno.land/std@0.192.0/encoding/base64url.ts";
 
+const port = 7003;
+
 Deno.test("get instance", async () => {
-  const port = 8686;
   const machineName = "machine";
   const instanceName = "instance";
   const expectedState = {
@@ -58,7 +59,6 @@ Deno.test("get instance", async () => {
 });
 
 Deno.test("create instance", async () => {
-  const port = 8686;
   const machineName = "machine";
   const instanceName = "instance";
   const expectedState = {
@@ -114,7 +114,6 @@ Deno.test("create instance", async () => {
 });
 
 Deno.test("get or create instance", async () => {
-  const port = 8686;
   const machineName = "machine";
   const instanceName = "instance";
   const expectedState = {
@@ -182,7 +181,6 @@ Deno.test("get or create instance", async () => {
 });
 
 Deno.test("get or create instance with race", async () => {
-  const port = 8686;
   const machineName = "machine";
   const instanceName = "instance";
   const expectedState = {
@@ -258,7 +256,6 @@ Deno.test("get or create instance with race", async () => {
 });
 
 Deno.test("dangerously.setStatus", async () => {
-  const port = 8686;
   const machineName = "machine";
   const instanceName = "instance";
 
@@ -295,7 +292,6 @@ Deno.test("dangerously.setStatus", async () => {
 });
 
 Deno.test("dangerously.delete", async () => {
-  const port = 8686;
   const machineName = "machine";
   const instanceName = "instance";
 

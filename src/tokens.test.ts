@@ -2,8 +2,9 @@ import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import { StateBackedClient, TokenExchangeRequest } from "./index.ts";
 import { testServer } from "./server.test.ts";
 
+const port = 7007;
+
 Deno.test("token exchange", async () => {
-  const port = 8686;
   const expectedReq: TokenExchangeRequest = {
     orgId: "my-org",
     service: "my-service",

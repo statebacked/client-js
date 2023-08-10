@@ -6,8 +6,9 @@ import {
 } from "./index.ts";
 import { testServer } from "./server.test.ts";
 
+const port = 7002;
+
 Deno.test("upsert idp", async () => {
-  const port = 8686;
   const expectedReq: UpsertIdentityProviderRequest = {
     aud: "https://example.com/aud",
     iss: "https://example.com/iss",
@@ -45,7 +46,6 @@ Deno.test("upsert idp", async () => {
 });
 
 Deno.test("delete idp", async () => {
-  const port = 8686;
   const expectedReq: DeleteIdentityProviderRequest = {
     aud: "https://example.com/aud",
     iss: "https://example.com/iss",

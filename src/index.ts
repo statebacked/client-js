@@ -83,6 +83,44 @@ export type ClientOpts = {
 };
 
 /**
+ * Token configuration to directly provide a State Backed token
+ * that the client will use for all requests.
+ */
+export type StateBackedTokenConfig = {
+  /**
+   * The State Backed token to use or a function returning a promise for that token.
+   */
+  token: string | (() => Promise<string>);
+};
+
+/**
+ * Token configuration allowing the State Backed client to exchange
+ * an identity provider token for a State Backed token.
+ *
+ * Token exchange must be configured prior to use by creating at least one identity provider and at least one token provider.
+ */
+export type TokenExchangeTokenConfig = {
+  /**
+   * The identity provider token to exchange for a State Backed token or a function returning a promise for that token.
+   *
+   * For example, this might be your Auth0 or Supabase access token.
+   */
+  identityProviderToken: string | (() => Promise<string>);
+
+  /**
+   * The name of the token provider service to use to generate the State Backed token.
+   */
+  tokenProviderService: string;
+
+  /**
+   * The State Backed organization ID to use.
+   */
+  orgId: string;
+};
+
+export type TokenConfig = StateBackedTokenConfig | TokenExchangeTokenConfig;
+
+/**
  * A client for the StateBacked.dev API.
  *
  * State Backed allows you to launch instances of XState state machines in the
@@ -112,29 +150,19 @@ export class StateBackedClient {
         | "base64url"
       >
     >;
-  private readonly token: Promise<string>;
+  private latestToken: string | undefined;
   private ws: ReconnectingWebSocket<WSToClientMsg, WSToServerMsg> | undefined;
 
   constructor(
     /**
-     * JWT generated using @statebacked/token and signed with an API key from `smply keys create`.
-     * Or a function returning a promise for that token.
+     * Configuration to retrieve the State Backed token to use for all requests.
      */
-    token: string | (() => Promise<string>),
+    private tokenConfig: TokenConfig | string | (() => Promise<string>),
     /**
      * Options for the client.
      */
     opts?: ClientOpts,
   ) {
-    this.token = typeof token === "string"
-      ? Promise.resolve(token)
-      : token().catch((err) => {
-        throw new errors.UnauthorizedError(
-          "failed to retrieve token",
-          undefined,
-          err,
-        );
-      });
     this.opts = {
       apiHost: opts?.apiHost ?? "https://api.statebacked.dev",
       orgId: opts?.orgId,
@@ -174,11 +202,65 @@ export class StateBackedClient {
     };
   }
 
-  private get headers() {
-    return this.token.then((token) => ({
+  private async token() {
+    if (this.latestToken) {
+      return this.latestToken;
+    }
+
+    const tokenConfig = this.tokenConfig;
+
+    if (typeof tokenConfig === "string") {
+      // supports the old API where you could pass a token directly
+      this.latestToken = tokenConfig;
+    } else if (typeof tokenConfig === "function") {
+      // supports the old API where you could pass a token function directly
+      this.latestToken = await tokenConfig().catch((err) => {
+        throw new errors.UnauthorizedError(
+          "failed to retrieve token",
+          undefined,
+          err,
+        );
+      });
+    } else if (
+      "token" in tokenConfig && typeof tokenConfig.token === "string"
+    ) {
+      this.latestToken = tokenConfig.token;
+    } else if (
+      "token" in tokenConfig && typeof tokenConfig.token === "function"
+    ) {
+      this.latestToken = await tokenConfig.token().catch((err) => {
+        throw new errors.UnauthorizedError(
+          "failed to retrieve token",
+          undefined,
+          err,
+        );
+      });
+    } else if ("identityProviderToken" in tokenConfig) {
+      this.latestToken = await this.tokens.exchange({
+        orgId: tokenConfig.orgId,
+        service: tokenConfig.tokenProviderService,
+        token: typeof tokenConfig.identityProviderToken === "string"
+          ? tokenConfig.identityProviderToken
+          : await tokenConfig.identityProviderToken(),
+      });
+    } else {
+      throw new errors.UnauthorizedError("invalid token configuration");
+    }
+
+    return this.latestToken;
+  }
+
+  private get nonAuthJSONHeaders() {
+    return {
       "content-type": "application/json",
-      "authorization": `Bearer ${token}`,
       ...(this.opts.orgId ? { "x-statebacked-org-id": this.opts.orgId } : {}),
+    };
+  }
+
+  private get headers() {
+    return this.token().then((token) => ({
+      ...this.nonAuthJSONHeaders,
+      "authorization": `Bearer ${token}`,
     }));
   }
 
@@ -189,7 +271,7 @@ export class StateBackedClient {
       this.ws?.removeListener(handler);
     };
 
-    const token = await this.token;
+    const token = await this.token();
 
     if (this.ws) {
       this.ws.addListener(handler);
@@ -1362,7 +1444,7 @@ export class StateBackedClient {
           {
             method: "POST",
             headers: {
-              ...(await this.headers),
+              ...this.nonAuthJSONHeaders,
               "content-type": "application/x-www-form-urlencoded",
             },
             body: new URLSearchParams({

@@ -8,8 +8,9 @@ import {
   decode as b64Decode,
 } from "https://deno.land/std@0.192.0/encoding/base64url.ts";
 
+const port = 7005;
+
 Deno.test("dangerously.delete", async () => {
-  const port = 8686;
   const machineName = "machine";
 
   const [abort, server] = await testServer(port, [

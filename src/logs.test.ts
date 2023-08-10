@@ -6,8 +6,9 @@ import { serve } from "https://deno.land/std@0.192.0/http/mod.ts";
 import { LogEntry, LogsResponse, StateBackedClient } from "./index.ts";
 import { defer } from "./defer.ts";
 
+const port = 7004;
+
 Deno.test("logs.watch", async () => {
-  const port = 8787;
   const instanceName = "inst";
   let logCount = 30;
   const startTs = Date.now();

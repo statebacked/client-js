@@ -2,8 +2,9 @@ import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import { StateBackedClient, UpsertTokenProviderRequest } from "./index.ts";
 import { testServer } from "./server.test.ts";
 
+const port = 7007;
+
 Deno.test("upsert token provider", async () => {
-  const port = 8686;
   const expectedReq: UpsertTokenProviderRequest = {
     keyId: "sbk_fake",
     service: "my-service",
@@ -39,7 +40,6 @@ Deno.test("upsert token provider", async () => {
 });
 
 Deno.test("delete token providers", async () => {
-  const port = 8686;
   const service = "my-service";
 
   const [abort, server] = await testServer(port, [
