@@ -1151,6 +1151,98 @@ export class StateBackedClient {
       };
     },
   };
+
+  /**
+   * Administrative APIs to manage identity providers.
+   *
+   * An identity provider is a configuration for validating and extracting claims from JWTs
+   * created by a third-party identity provider (e.g. Auth0, Supabase, etc.).
+   *
+   * Those claims can then be used by token providers to generate State Backed tokens.
+   *
+   * This token exchange allows fully-secure, end-to-end authorized requests
+   * directly from client code without needing any server and without having to change
+   * identity providers.
+   */
+  public readonly identityProviders = {
+    /**
+     * Create or update an identity provider configuration.
+     *
+     * Token exchange involves exchanging an identity provider-signed token for a
+     * State Backed-signed token. By adding an identity provider configuration to
+     * State Backed, you are instructing State Backed to trust any valid token
+     * from that identity provider when evaluating whether to allow a token exchange.
+     * You are also extracting the claims from that token that you want to make available
+     * to your token providers to include in the State Backed token.
+     *
+     * For example, if you are using Auth0 as your identity provider, you can configure
+     * State Backed to trust your Auth0 tokens by calling:
+     *
+     * ```javascript
+     * client.identityProviders.upsert({
+     *   aud: "https://<your-auth0-domain>.us.auth0.com/api/v2/",
+     *   iss: "https://<your-auth0-domain>.us.auth0.com/",
+     *   jwksUrl: "https://<your-auth0-domain>.us.auth0.com/.well-known/jwks.json",
+     *   algs: ["RS256"],
+     *   mapping: {
+     *    "sub.$": "$.sub",
+     *    "email.$": "$.email",
+     *    "provider": "auth0",
+     *   },
+     * })
+     * ```
+     *
+     * State Backed uses the audience (`aud`) and issuer (`iss`) claims in any tokens
+     * provided for exchange to identify the identity provider to use for verification.
+     *
+     * In this example, token providers would be have access to `sub`, `email`, and `provider`
+     * claims that they could include in the resultant State Backed token.
+     *
+     * Upserts may change algorithms, mappings, keys or jwksUrls.
+     *
+     * This endpoint requires admin access.
+     *
+     * @param req - identity provider configuration. At least one of `aud` and `iss` must be provided and at least one of `keys` and `jwksUrl` must be provided.
+     * @param signal - an optional AbortSignal to abort the request
+     */
+    upsert: async (
+      req: UpsertIdentityProviderRequest,
+      signal?: AbortSignal,
+    ): Promise<void> =>
+      adaptErrors<void>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/idps`,
+          {
+            method: "POST",
+            headers: await this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
+
+    /**
+     * Delete an identity provider configuration
+     *
+     * @param req - identity provider configuration. At least one of `aud` and `iss` must be provided.
+     * @param signal - an optional AbortSignal to abort the request
+     */
+    delete: async (
+      req: DeleteIdentityProviderRequest,
+      signal?: AbortSignal,
+    ): Promise<void> =>
+      adaptErrors<void>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/idps`,
+          {
+            method: "DELETE",
+            headers: await this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
+  };
 }
 
 function delayPromise(ms: number) {
@@ -1240,6 +1332,14 @@ export type LogsResponse = NonNullable<
 >["content"]["application/json"];
 
 export type LogEntry = LogsResponse["logs"][number];
+
+export type UpsertIdentityProviderRequest = NonNullable<
+  api.paths["/idps"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+export type DeleteIdentityProviderRequest = NonNullable<
+  api.paths["/idps"]["delete"]["requestBody"]
+>["content"]["application/json"];
 
 export type MachineName = api.components["schemas"]["MachineSlug"];
 export type MachineInstanceName =
