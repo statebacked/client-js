@@ -201,6 +201,12 @@ export class StateBackedClient {
           .replace(/=/g, "");
       }),
     };
+
+    // let's eagerly retrieve the token
+    this.token().catch(() => {
+      // we can swallow the error here because we will attempt to get the token
+      // again on the next request and throw a propper error
+    });
   }
 
   private token() {

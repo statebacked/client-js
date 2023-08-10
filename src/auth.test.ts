@@ -56,7 +56,7 @@ Deno.test("state backed token exchange with string token", async () => {
     }), tokenConfig);
 });
 
-Deno.test("state backed token exchange with string token", async () => {
+Deno.test("state backed token exchange with promise token", async () => {
   const identityProviderToken = "idp-token";
   const orgId = "org-id";
   const tokenProviderService = "my-service";
