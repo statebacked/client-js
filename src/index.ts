@@ -8,7 +8,7 @@ import {
   FormDataCtorType,
   WebSocketCtorType,
 } from "./web-types.ts";
-import { EnhancedState, enhanceState } from "./state-utils.ts";
+import { EnhancedState, enhanceState, toStrings } from "./state-utils.ts";
 
 export { errors };
 
@@ -814,6 +814,38 @@ export class StateBackedClient {
       ),
 
     /**
+     * Returns an XState-compatible actor that represents the machine instance.
+     *
+     * The actor allows for subscriptions to state and sending events.
+     *
+     * @param machineName - the name of the machine we are creting an actor for
+     * @param machineInstanceName - the name of the machine instance we are creating an actor for
+     * @param opts - options for the actor
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - an XState-compatible actor
+     */
+    getActor: <
+      TEvent extends Event,
+      TState extends StateValue = any,
+      TContext extends Record<string, unknown> = any,
+    >(
+      machineName: MachineName,
+      machineInstanceName: MachineInstanceName,
+      opts?: {
+        onError?: (err: Error) => void;
+      },
+      signal?: AbortSignal,
+    ): Actor<TEvent, TState, TContext> => {
+      return new Actor<TEvent, TState, TContext>(
+        this,
+        machineName,
+        machineInstanceName,
+        opts,
+        signal,
+      );
+    },
+
+    /**
      * Send an event to a machine instance.
      *
      * @param machineName - the name of the machine we are sending an event to
@@ -1021,6 +1053,7 @@ export class StateBackedClient {
 
       const unsubscribe = () => {
         isUnsubscribed = true;
+        signal?.removeEventListener("abort", unsubscribe);
         this.ws?.send({
           type: "unsubscribe-from-instance",
           machineName,
@@ -1742,3 +1775,326 @@ const neverSettled = (() => {
     return p;
   };
 })();
+
+const symbolObservable: symbol =
+  (() =>
+    (typeof Symbol === "function" && (Symbol as ObservableSymbol).observable) ||
+    "@@observable")() as any;
+
+type ObservableSymbol = typeof Symbol & {
+  observable: symbol;
+};
+
+/**
+ * An "actor" is a client-side representation of a machine instance.
+ *
+ * This is intended to closely mimic the notion of an XState actor and should
+ * be compatible with any XState utilities that accept actors.
+ */
+export class Actor<
+  TEvent extends Event,
+  TState extends StateValue = any,
+  TContext extends Record<string, unknown> = any,
+> {
+  private state: ActorState<TState> | undefined;
+  private subscribers: Array<(state: ActorState<TState>) => void> = [];
+  private unsubscribe: Unsubscribe | undefined;
+
+  /**
+   * Whether the actor has errored.
+   */
+  public hasError = false;
+
+  /**
+   * The actor's id ("machineName/instanceName")
+   */
+  public readonly id: string;
+
+  constructor(
+    private client: StateBackedClient,
+    private machineName: string,
+    private instanceName: string,
+    private opts?: { onError?: (err: Error) => void },
+    private signal?: AbortSignal,
+  ) {
+    this.id = `${machineName}/${instanceName}`;
+
+    this._subscribeToRemoteState();
+  }
+
+  private setState(state: ActorState<TState, TContext>) {
+    this.state = state;
+    for (const sub of this.subscribers) {
+      sub(state);
+    }
+  }
+
+  private _subscribeToRemoteState() {
+    if (this.unsubscribe) {
+      return;
+    }
+
+    const unsub = this.client.machineInstances.subscribe(
+      this.machineName,
+      this.instanceName,
+      (event) => {
+        this.setState(new ActorState(event));
+      },
+      (err) => {
+        this.hasError = true;
+        this.opts?.onError?.(err);
+      },
+      this.signal,
+    );
+
+    this.unsubscribe = () => {
+      unsub();
+      this.unsubscribe = undefined;
+    };
+  }
+
+  /**
+   * Subscribe to the actor's state. This will call the callback with
+   * the current state and any time the state changes.
+   *
+   * @param cb - function to call for each state update
+   * @returns - a function to unsubscribe from state updates
+   */
+  public subscribe(cb: (state: ActorState<TState, TContext>) => void) {
+    this.subscribers.push(cb);
+    if (!this.unsubscribe) {
+      this._subscribeToRemoteState();
+    }
+
+    return () => {
+      this.subscribers = this.subscribers.filter((sub) => sub !== cb);
+      if (this.subscribers.length === 0) {
+        this.unsubscribe?.();
+      }
+    };
+  }
+
+  /**
+   * Send an event to the actor.
+   *
+   * @param event - the event to send
+   */
+  public send(event: TEvent) {
+    this.client.machineInstances.sendEvent(
+      this.machineName,
+      this.instanceName,
+      { event },
+      this.signal,
+    ).catch((err) => {
+      this.opts?.onError?.(err);
+    });
+  }
+
+  /**
+   * Get the current state.
+   *
+   * @returns the current state of the instance.
+   */
+  public getSnapshot() {
+    return this.state;
+  }
+
+  public [symbolObservable]() {
+    return this;
+  }
+}
+
+/**
+ * The state of an actor.
+ *
+ * This is intended to closely mimic an XState State object.
+ *
+ * There are some differences:
+ *  - events are not considered public so we remove _event, event, and events
+ *  - we do not yet have any concept of next events so we remove nextEvents and can
+ *  - actions, activities, and children are removed
+ *  - we do not include history in the public interface
+ *  - meta is considered private for now, so we do not include it
+ *  - the only top-level key of context is public and it includes only the publicContext
+ *  - we do not support changed
+ */
+export class ActorState<
+  TState extends StateValue = any,
+  TPublicContext extends Record<string, unknown> = any,
+> {
+  /**
+   * The context of the instance.
+   *
+   * The only key is public and it includes only the publicContext.
+   */
+  public context: { public: TPublicContext };
+
+  /**
+   * Has the instance reached a final state?
+   */
+  public done: boolean;
+
+  /**
+   * The tags of the current states of the instance.
+   */
+  public tags: Set<string>;
+
+  /**
+   * The current state value of the instance.
+   */
+  public value: TState;
+
+  constructor(private machineState: GetMachineInstanceResponse) {
+    this.value = machineState.state as TState;
+    this.context = {
+      public: machineState.publicContext as TPublicContext,
+    };
+
+    this.done = machineState.done;
+
+    this.tags = new Set(machineState.tags);
+  }
+
+  /**
+   * Does the current state include the provided tag?
+   */
+  public hasTag(tag: string) {
+    return this.tags.has(tag);
+  }
+
+  /**
+   * Get the current state value as an array of strings.
+   */
+  public toStrings(): Array<string> {
+    return toStrings(this.value);
+  }
+
+  /**
+   * Does the current state value match the provided state descriptor?
+   *
+   * If the current state is { a: { b: "c" } }, the following all "match":
+   *  - "a"
+   *  - "a.b"
+   *  - "a.b.c"
+   *  - ["a"]
+   *  - ["a", "b"]
+   *  - ["a", "b", "c"]
+   *  - { a: "b" }
+   *  - { a: { b: "c" } }
+   */
+  public matches(state: AnyStateDescriptorFrom<TState>) {
+    return matchesState(state, this.value);
+  }
+}
+
+// from https://github.com/statelyai/xstate/blob/main/packages/core/src/utils.ts
+
+/**
+ * Returns whether the childStateId is a substate of the parentStateId.
+ * If the current state is { a: { b: "c" } }, the following all "match":
+ *  - "a"
+ *  - "a.b"
+ *  - "a.b.c"
+ *  - ["a"]
+ *  - ["a", "b"]
+ *  - ["a", "b", "c"]
+ *  - { a: "b" }
+ *  - { a: { b: "c" } }
+ *
+ * @param parentStateId - object, array of strings, or string representing the parent state id
+ * @param childStateId - object, or string representing the child state id
+ */
+export function matchesState(
+  parentStateId: StateValue | Array<string> | undefined,
+  childStateId: StateValue | undefined,
+): boolean {
+  if (typeof parentStateId === "undefined") {
+    return typeof childStateId === "undefined";
+  }
+
+  if (typeof childStateId === "undefined") {
+    return true;
+  }
+
+  const parentStateValue = toStateValue(parentStateId);
+  const childStateValue = toStateValue(childStateId);
+
+  if (isString(childStateValue)) {
+    if (isString(parentStateValue)) {
+      return childStateValue === parentStateValue;
+    }
+
+    // Parent more specific than child
+    return false;
+  }
+
+  if (isString(parentStateValue)) {
+    return parentStateValue in childStateValue;
+  }
+
+  return Object.keys(parentStateValue).every((key) => {
+    if (!(key in childStateValue)) {
+      return false;
+    }
+
+    return matchesState(parentStateValue[key], childStateValue[key]);
+  });
+}
+
+function isString(value: any): value is string {
+  return typeof value === "string";
+}
+
+// from https://github.com/statelyai/xstate/blob/main/packages/core/src/utils.ts
+function toStateValue(
+  stateValue: StateValue | string[],
+): StateValue {
+  if (Array.isArray(stateValue)) {
+    return pathToStateValue(stateValue);
+  }
+
+  if (typeof stateValue !== "string") {
+    return stateValue as StateValue;
+  }
+
+  const statePath = stateValue.split(".");
+
+  return pathToStateValue(statePath);
+}
+
+// from https://github.com/statelyai/xstate/blob/main/packages/core/src/utils.ts
+function pathToStateValue(statePath: string[]): StateValue {
+  if (statePath.length === 1) {
+    return statePath[0];
+  }
+
+  const value: StateValue & {} = {};
+  let marker = value;
+
+  for (let i = 0; i < statePath.length - 1; i++) {
+    if (i === statePath.length - 2) {
+      marker[statePath[i]] = statePath[i + 1];
+    } else {
+      marker[statePath[i]] = {};
+      marker = marker[statePath[i]] as any;
+    }
+  }
+
+  return value;
+}
+
+/**
+ * Takes a state shape (e.g. { a: "b"}) and adds all state paths to it
+ * e.g. {a: "b"} | "a" | "a.b"
+ *
+ * Useful for generating a type that accepts any state descriptor for a given state
+ */
+type AnyStateDescriptorFrom<TState extends StateValue> = TState | Paths<TState>;
+
+/**
+ * Generates a type that accepts any path through the provided object type.
+ */
+type Paths<T> = T extends string ? T : {
+  [K in keyof T]: K extends string ? K | `${K}.${Paths<T[K]>}`
+    : never;
+}[keyof T];
