@@ -852,6 +852,50 @@ export class StateBackedClient {
     },
 
     /**
+     * Returns an XState-compatible actor that represents the machine instance,
+     * creating the instance if it does not exist.
+     *
+     * The actor allows for subscriptions to state and sending events.
+     *
+     * @param machineName - the name of the machine we are creting an actor for
+     * @param machineInstanceName - the name of the machine instance we are creating an actor for
+     * @param creationParams - parameters to use when creating the machine instance if it doesn't exist OR function returning those parameters if they are expensive to calculate
+     * @param opts - options for the actor
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - an XState-compatible actor
+     */
+    getOrCreateActor: async <
+      TEvent extends Event,
+      TState extends StateValue = any,
+      TContext extends Record<string, unknown> = any,
+    >(
+      machineName: MachineName,
+      machineInstanceName: MachineInstanceName,
+      creationParams:
+        | Omit<CreateMachineInstanceRequest, "slug">
+        | (() => Omit<CreateMachineInstanceRequest, "slug">),
+      opts?: {
+        onError?: (err: Error) => void;
+      },
+      signal?: AbortSignal,
+    ): Promise<Actor<TEvent, TState, TContext>> => {
+      const state = await this.machineInstances.getOrCreate(
+        machineName,
+        machineInstanceName,
+        creationParams,
+        signal,
+      );
+      return new Actor<TEvent, TState, TContext>(
+        this,
+        machineName,
+        machineInstanceName,
+        state,
+        opts,
+        signal,
+      );
+    },
+
+    /**
      * Send an event to a machine instance.
      *
      * @param machineName - the name of the machine we are sending an event to
