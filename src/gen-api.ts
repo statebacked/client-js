@@ -675,7 +675,7 @@ export interface paths {
      *   -H 'authorization: Bearer sbsk_...'
      *   --data '{
      *     "keyId": "sbk_...", // ID for a previously-created State Backed key
-     *     "service": "your-app", any identifier for your token provider
+     *     "service": "your-app", // any identifier for your token provider
      *     "mapping": {
      *       "sub.$": "$.sub",
      *       "email.$": "$.email",
@@ -804,11 +804,6 @@ export interface components {
     State: {
       state: components["schemas"]["StateValue"];
       /**
-       * @description A flattened array of the states that the machine instance is in.
-       * This may be easier to work with than the `state` property.
-       */
-      states: (string)[];
-      /**
        * @description The public context of the machine instance.
        *
        * This includes all context under the `public` key.
@@ -816,6 +811,10 @@ export interface components {
       publicContext?: {
         [key: string]: unknown;
       };
+      /** @description Array of tags for the current states */
+      tags: (string)[];
+      /** @description Is the state machine complete */
+      done: boolean;
     };
     /** @description An event to send to a machine instance. */
     Event:
@@ -855,6 +854,10 @@ export interface components {
         [key: string]: unknown;
       };
       state: components["schemas"]["StateValue"];
+      /** @description Array of tags for the current states */
+      tags: (string)[];
+      /** @description Is the state machine complete */
+      done: boolean;
     };
     /**
      * @description Websocket message sent to the client to indicate that an error has occurred
