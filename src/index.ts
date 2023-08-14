@@ -992,6 +992,8 @@ export class StateBackedClient {
                 onStateUpdate(enhanceState({
                   state: msg.state,
                   publicContext: msg.publicContext,
+                  done: msg.done,
+                  tags: msg.tags,
                 }));
                 return;
               }
