@@ -1,5 +1,4 @@
 import {
-  assert,
   assertEquals,
   fail,
 } from "https://deno.land/std@0.192.0/testing/asserts.ts";
@@ -36,6 +35,8 @@ Deno.test("receive subscription items", async () => {
             machineName: msg.machineName,
             publicContext: { token },
             state: statesToSend.shift()!,
+            done: false,
+            tags: ["hello"],
           };
           socket.send(JSON.stringify(stateUpdate1));
 
@@ -66,7 +67,8 @@ Deno.test("receive subscription items", async () => {
     (stateUpdate) => {
       assertEquals(stateUpdate.publicContext, { token });
       assertEquals(stateUpdate.state, expectedStates.shift());
-      assert(stateUpdate.states.length > 0);
+      assertEquals(stateUpdate.tags, ["hello"]);
+      assertEquals(stateUpdate.done, false);
 
       if (expectedStates.length === 0) {
         unsubscribe();
