@@ -59,7 +59,7 @@ Deno.test("receive subscription items", async () => {
   await whenListening;
 
   const client = new StateBackedClient(token, {
-    apiHost: `ws://localhost:${port}`,
+    apiHost: `http://localhost:${port}`,
   });
   const unsubscribe = client.machineInstances.subscribe(
     machineName,
@@ -114,7 +114,7 @@ Deno.test("send pings", async () => {
   await whenListening;
 
   const client = new StateBackedClient(token, {
-    apiHost: `ws://localhost:${port}`,
+    apiHost: `http://localhost:${port}`,
     wsPingIntervalMs: pingTimeout,
   });
   const unsubscribe = client.machineInstances.subscribe(
@@ -169,7 +169,7 @@ Deno.test("reconnect", async () => {
   await whenListening;
 
   const client = new StateBackedClient(token, {
-    apiHost: `ws://localhost:${port}`,
+    apiHost: `http://localhost:${port}`,
   });
   const unsubscribe = client.machineInstances.subscribe(
     "machine-name",

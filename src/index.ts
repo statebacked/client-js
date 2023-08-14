@@ -142,6 +142,7 @@ export class StateBackedClient {
     & Required<
       Pick<
         ClientOpts,
+        | "apiHost"
         | "wsPingIntervalMs"
         | "fetch"
         | "Blob"
@@ -326,7 +327,9 @@ export class StateBackedClient {
       return unsubscribe;
     }
 
-    const url = new URL(`${this.opts.apiHost}/rt`);
+    const url = new URL(this.opts.apiHost);
+    url.protocol = url.protocol === "http:" ? "ws:" : "wss:";
+    url.pathname = url.pathname.replace(/[/]$/, "") + "/rt";
     url.searchParams.set("token", token);
     if (this.opts.orgId) {
       url.searchParams.set("x-statebacked-org-id", this.opts.orgId);
