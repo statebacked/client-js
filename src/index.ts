@@ -824,7 +824,7 @@ export class StateBackedClient {
      * @param signal - an optional AbortSignal to abort the request
      * @returns - an XState-compatible actor
      */
-    getActor: <
+    getActor: async <
       TEvent extends Event,
       TState extends StateValue = any,
       TContext extends Record<string, unknown> = any,
@@ -835,11 +835,17 @@ export class StateBackedClient {
         onError?: (err: Error) => void;
       },
       signal?: AbortSignal,
-    ): Actor<TEvent, TState, TContext> => {
+    ): Promise<Actor<TEvent, TState, TContext>> => {
+      const state = await this.machineInstances.get(
+        machineName,
+        machineInstanceName,
+        signal,
+      );
       return new Actor<TEvent, TState, TContext>(
         this,
         machineName,
         machineInstanceName,
+        state,
         opts,
         signal,
       );
@@ -1796,7 +1802,7 @@ export class Actor<
   TState extends StateValue = any,
   TContext extends Record<string, unknown> = any,
 > {
-  private state: ActorState<TState> | undefined;
+  private state: ActorState<TState>;
   private subscribers: Array<(state: ActorState<TState>) => void> = [];
   private unsubscribe: Unsubscribe | undefined;
 
@@ -1814,12 +1820,12 @@ export class Actor<
     private client: StateBackedClient,
     private machineName: string,
     private instanceName: string,
+    state: GetMachineInstanceResponse,
     private opts?: { onError?: (err: Error) => void },
     private signal?: AbortSignal,
   ) {
     this.id = `${machineName}/${instanceName}`;
-
-    this._subscribeToRemoteState();
+    this.state = new ActorState(state);
   }
 
   private setState(state: ActorState<TState, TContext>) {

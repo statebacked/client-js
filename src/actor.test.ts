@@ -48,6 +48,18 @@ Deno.test("actor", async () => {
   let send: () => void;
 
   const [abort, server] = await testServer(port, [
+    (req) => {
+      assertEquals(req.method, "GET");
+      assertEquals(
+        new URL(req.url).pathname,
+        `/machines/${machineName}/i/${machineInstanceName}`,
+      );
+
+      return new Response(
+        JSON.stringify(statesToSend[0]),
+        { status: 200 },
+      );
+    },
     async (req) => {
       assertEquals(req.method, "GET");
       assertEquals(new URL(req.url).pathname, "/rt");
@@ -106,14 +118,20 @@ Deno.test("actor", async () => {
     apiHost: `http://localhost:${port}`,
   });
 
-  const actor = client.machineInstances.getActor<Events, State, Context>(
+  const actor = await client.machineInstances.getActor<Events, State, Context>(
     machineName,
     machineInstanceName,
     undefined,
     abort.signal,
   );
 
-  assert(typeof actor.getSnapshot() === "undefined");
+  assertEquals(actor.getSnapshot(), actor.getSnapshot());
+  assertEquals(actor.getSnapshot()?.context, {
+    public: expectedStates[0].publicContext,
+  });
+  assertEquals(actor.getSnapshot()?.done, expectedStates[0].done);
+  assertEquals(actor.getSnapshot()?.value, expectedStates[0].state);
+  assertEquals(actor.getSnapshot()?.tags, new Set(expectedStates[0].tags));
 
   const unsubscribe = actor.subscribe((state) => {
     const expected = expectedStates.shift()!;
