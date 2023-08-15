@@ -68,7 +68,6 @@ export class ReconnectingWebSocket<Incoming, Outgoing> {
       }
     };
     ws.onclose = () => {
-      console.log("closed");
       this.ws = undefined;
       onDisconnect?.();
       this.connect();
@@ -91,7 +90,6 @@ export class ReconnectingWebSocket<Incoming, Outgoing> {
   }
 
   public close() {
-    console.log("close called");
     this.state = "closed";
     this.ws?.close();
     this.ws = undefined;
