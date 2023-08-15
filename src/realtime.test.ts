@@ -1,4 +1,5 @@
 import {
+  assert,
   assertEquals,
   fail,
 } from "https://deno.land/std@0.192.0/testing/asserts.ts";
@@ -22,13 +23,20 @@ Deno.test("receive subscription items", async () => {
 
   const [onListen, whenListening] = defer();
 
+  let didUnsubscribe = false;
+  let subscribeCount = 0;
+
   const server = serve(async (req) => {
     const { socket, response } = await Deno.upgradeWebSocket(req);
     const statesToSend = expectedStates.slice();
+    socket.onclose = () => {
+      abort.abort();
+    };
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data) as WSToServerMsg;
       switch (msg.type) {
         case "subscribe-to-instance": {
+          assertEquals(++subscribeCount, 1);
           const stateUpdate1: WSToClientMsg = {
             type: "instance-update",
             machineInstanceName: msg.machineInstanceName,
@@ -48,7 +56,7 @@ Deno.test("receive subscription items", async () => {
           return;
         }
         case "unsubscribe-from-instance": {
-          abort.abort();
+          didUnsubscribe = true;
           return;
         }
       }
@@ -77,6 +85,8 @@ Deno.test("receive subscription items", async () => {
   );
 
   await server;
+
+  assert(didUnsubscribe);
 });
 
 Deno.test("send pings", async () => {
@@ -92,8 +102,13 @@ Deno.test("send pings", async () => {
     fail("did not receive ping");
   }, failureTimeout);
 
+  let didUnsubscribe = false;
+
   const server = serve(async (req) => {
     const { socket, response } = await Deno.upgradeWebSocket(req);
+    socket.onclose = () => {
+      abort.abort();
+    };
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data) as WSToServerMsg;
       switch (msg.type) {
@@ -103,7 +118,7 @@ Deno.test("send pings", async () => {
           return;
         }
         case "unsubscribe-from-instance": {
-          abort.abort();
+          didUnsubscribe = true;
           return;
         }
       }
@@ -128,6 +143,8 @@ Deno.test("send pings", async () => {
   unsubscribe();
 
   await server;
+
+  assert(didUnsubscribe);
 });
 
 Deno.test("reconnect", async () => {
@@ -146,6 +163,11 @@ Deno.test("reconnect", async () => {
     socket.onopen = () => {
       onConnects.shift()?.();
     };
+    socket.onclose = () => {
+      if (onConnects.length === 0) {
+        abort.abort();
+      }
+    };
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data) as WSToServerMsg;
       switch (msg.type) {
@@ -158,7 +180,6 @@ Deno.test("reconnect", async () => {
           return;
         }
         case "unsubscribe-from-instance": {
-          abort.abort();
           return;
         }
       }

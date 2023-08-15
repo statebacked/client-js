@@ -60,6 +60,8 @@ Deno.test("getActor", async () => {
 
   let send: () => void;
 
+  let didUnsubscribe = false;
+
   const [abort, server] = await testServer(port, [
     (req) => {
       assertEquals(req.method, "GET");
@@ -78,6 +80,9 @@ Deno.test("getActor", async () => {
       assertEquals(new URL(req.url).pathname, "/rt");
 
       const { socket, response } = await Deno.upgradeWebSocket(req);
+      socket.onclose = () => {
+        doUnsubscribe();
+      };
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as WSToServerMsg;
         switch (msg.type) {
@@ -96,10 +101,7 @@ Deno.test("getActor", async () => {
             return;
           }
           case "unsubscribe-from-instance": {
-            setTimeout(
-              doUnsubscribe,
-              10,
-            );
+            didUnsubscribe = true;
             return;
           }
         }
@@ -166,6 +168,8 @@ Deno.test("getActor", async () => {
 
   await unsubscribed;
 
+  assert(didUnsubscribe);
+
   assertEquals(expectedStates.length, 0);
 
   abort.abort();
@@ -197,6 +201,8 @@ Deno.test("getOrCreateActor", async () => {
   const statesToSend = [...expectedStates];
 
   const [doUnsubscribe, unsubscribed] = defer();
+
+  let didUnsubscribe = false;
 
   let send: () => void;
 
@@ -234,6 +240,9 @@ Deno.test("getOrCreateActor", async () => {
       assertEquals(new URL(req.url).pathname, "/rt");
 
       const { socket, response } = await Deno.upgradeWebSocket(req);
+      socket.onclose = () => {
+        doUnsubscribe();
+      };
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as WSToServerMsg;
         switch (msg.type) {
@@ -252,10 +261,7 @@ Deno.test("getOrCreateActor", async () => {
             return;
           }
           case "unsubscribe-from-instance": {
-            setTimeout(
-              doUnsubscribe,
-              10,
-            );
+            didUnsubscribe = true;
             return;
           }
         }
@@ -331,6 +337,7 @@ Deno.test("getOrCreateActor", async () => {
 
   await unsubscribed;
 
+  assert(didUnsubscribe);
   assertEquals(expectedStates.length, 0);
 
   abort.abort();

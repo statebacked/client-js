@@ -27,7 +27,9 @@ export class ReconnectingWebSocket<Incoming, Outgoing> {
 
   public persistentSend(msg: Outgoing) {
     this.persistentMsgs.push(msg);
-    this.send(msg);
+    if (this.state === "idle") {
+      this.send(msg);
+    }
     const cancel = () => {
       this.persistentMsgs = this.persistentMsgs.filter((m) => m !== msg);
     };
@@ -66,6 +68,7 @@ export class ReconnectingWebSocket<Incoming, Outgoing> {
       }
     };
     ws.onclose = () => {
+      console.log("closed");
       this.ws = undefined;
       onDisconnect?.();
       this.connect();
@@ -88,6 +91,7 @@ export class ReconnectingWebSocket<Incoming, Outgoing> {
   }
 
   public close() {
+    console.log("close called");
     this.state = "closed";
     this.ws?.close();
     this.ws = undefined;

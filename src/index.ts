@@ -1097,13 +1097,13 @@ export class StateBackedClient {
       const unsubscribe = () => {
         isUnsubscribed = true;
         signal?.removeEventListener("abort", unsubscribe);
+        cancelSubscription?.();
         this.ws?.send({
           type: "unsubscribe-from-instance",
           machineName,
           machineInstanceName,
           requestId,
         });
-        cancelSubscription?.();
         wsUnsubscribe?.();
       };
 
