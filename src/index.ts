@@ -240,14 +240,17 @@ export class StateBackedClient {
     }
 
     if (!this.inProgressTokenPromise) {
-      this.inProgressTokenPromise = this.refreshToken();
+      this.inProgressTokenPromise = this.refreshToken().then((token) => {
+        this.setToken(token);
+        this.inProgressTokenPromise = undefined;
+        return token;
+      }).catch((err) => {
+        this.inProgressTokenPromise = undefined;
+        throw err;
+      });
     }
 
-    return this.inProgressTokenPromise.then((token) => {
-      this.setToken(token);
-      this.inProgressTokenPromise = undefined;
-      return token;
-    });
+    return this.inProgressTokenPromise;
   }
 
   private async refreshToken() {
