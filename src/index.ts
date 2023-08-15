@@ -175,7 +175,8 @@ export class StateBackedClient {
       Blob: opts?.Blob ?? (globalThis as any as { Blob: BlobCtorType }).Blob,
       FormData: opts?.FormData ??
         (globalThis as any as { FormData: FormDataCtorType }).FormData,
-      fetch: opts?.fetch ?? (globalThis as any as { fetch: Fetch }).fetch,
+      fetch: opts?.fetch ??
+        (globalThis as any as { fetch: Fetch }).fetch.bind(globalThis),
       hmacSha256: opts?.hmacSha256 ?? (async (key, data) => {
         const cryptoKey = await crypto.subtle.importKey(
           "raw",
