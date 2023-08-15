@@ -825,15 +825,12 @@ export class StateBackedClient {
      * @returns - an XState-compatible actor
      */
     getActor: async <
-      TEvent extends Event,
+      TEvent extends Exclude<Event, string>,
       TState extends StateValue = any,
       TContext extends Record<string, unknown> = any,
     >(
       machineName: MachineName,
       machineInstanceName: MachineInstanceName,
-      opts?: {
-        onError?: (err: Error) => void;
-      },
       signal?: AbortSignal,
     ): Promise<Actor<TEvent, TState, TContext>> => {
       const state = await this.machineInstances.get(
@@ -846,7 +843,6 @@ export class StateBackedClient {
         machineName,
         machineInstanceName,
         state,
-        opts,
         signal,
       );
     },
@@ -865,7 +861,7 @@ export class StateBackedClient {
      * @returns - an XState-compatible actor
      */
     getOrCreateActor: async <
-      TEvent extends Event,
+      TEvent extends Exclude<Event, string>,
       TState extends StateValue = any,
       TContext extends Record<string, unknown> = any,
     >(
@@ -874,9 +870,6 @@ export class StateBackedClient {
       creationParams:
         | Omit<CreateMachineInstanceRequest, "slug">
         | (() => Omit<CreateMachineInstanceRequest, "slug">),
-      opts?: {
-        onError?: (err: Error) => void;
-      },
       signal?: AbortSignal,
     ): Promise<Actor<TEvent, TState, TContext>> => {
       const state = await this.machineInstances.getOrCreate(
@@ -890,7 +883,6 @@ export class StateBackedClient {
         machineName,
         machineInstanceName,
         state,
-        opts,
         signal,
       );
     },
@@ -1826,14 +1818,22 @@ const neverSettled = (() => {
   };
 })();
 
-const symbolObservable: symbol =
-  (() =>
-    (typeof Symbol === "function" && (Symbol as ObservableSymbol).observable) ||
-    "@@observable")() as any;
+interface Observer<T> {
+  next: (value: T) => void;
+  error?: (err: any) => void;
+  complete?: () => void;
+}
 
-type ObservableSymbol = typeof Symbol & {
-  observable: symbol;
-};
+declare global {
+  interface SymbolConstructor {
+    readonly observable: symbol;
+  }
+}
+
+const symbolObservable: typeof Symbol.observable =
+  (() =>
+    (typeof Symbol === "function" && Symbol.observable) ||
+    "@@observable")() as any;
 
 /**
  * An "actor" is a client-side representation of a machine instance.
@@ -1842,18 +1842,13 @@ type ObservableSymbol = typeof Symbol & {
  * be compatible with any XState utilities that accept actors.
  */
 export class Actor<
-  TEvent extends Event,
+  TEvent extends Exclude<Event, string> = any,
   TState extends StateValue = any,
   TContext extends Record<string, unknown> = any,
 > {
   private state: ActorState<TState>;
-  private subscribers: Array<(state: ActorState<TState>) => void> = [];
+  private subscribers: Array<Observer<ActorState<TState, TContext>>> = [];
   private unsubscribe: Unsubscribe | undefined;
-
-  /**
-   * Whether the actor has errored.
-   */
-  public hasError = false;
 
   /**
    * The actor's id ("machineName/instanceName")
@@ -1865,7 +1860,6 @@ export class Actor<
     private machineName: string,
     private instanceName: string,
     state: GetMachineInstanceResponse,
-    private opts?: { onError?: (err: Error) => void },
     private signal?: AbortSignal,
   ) {
     this.id = `${machineName}/${instanceName}`;
@@ -1875,7 +1869,13 @@ export class Actor<
   private setState(state: ActorState<TState, TContext>) {
     this.state = state;
     for (const sub of this.subscribers) {
-      sub(state);
+      sub.next(state);
+    }
+  }
+
+  private reportError(err: Error) {
+    for (const sub of this.subscribers) {
+      sub.error?.(err);
     }
   }
 
@@ -1891,8 +1891,7 @@ export class Actor<
         this.setState(new ActorState(event));
       },
       (err) => {
-        this.hasError = true;
-        this.opts?.onError?.(err);
+        this.reportError(err);
       },
       this.signal,
     );
@@ -1910,17 +1909,41 @@ export class Actor<
    * @param cb - function to call for each state update
    * @returns - a function to unsubscribe from state updates
    */
-  public subscribe(cb: (state: ActorState<TState, TContext>) => void) {
-    this.subscribers.push(cb);
+  public subscribe(
+    next: (value: ActorState<TState, TContext>) => void,
+    error?: (error: any) => void,
+    complete?: () => void,
+  ): Subscription;
+  public subscribe(
+    observer: Observer<ActorState<TState, TContext>>,
+  ): Subscription;
+  public subscribe(
+    nextOrObserver:
+      | Observer<ActorState<TState, TContext>>
+      | ((value: ActorState<TState, TContext>) => void),
+    error?: (error: any) => void,
+    complete?: () => void,
+  ): Subscription {
+    const observer = typeof nextOrObserver === "function"
+      ? {
+        next: nextOrObserver,
+        error,
+        complete,
+      }
+      : nextOrObserver;
+
+    this.subscribers.push(observer);
     if (!this.unsubscribe) {
       this._subscribeToRemoteState();
     }
 
-    return () => {
-      this.subscribers = this.subscribers.filter((sub) => sub !== cb);
-      if (this.subscribers.length === 0) {
-        this.unsubscribe?.();
-      }
+    return {
+      unsubscribe: () => {
+        this.subscribers = this.subscribers.filter((sub) => sub !== observer);
+        if (this.subscribers.length === 0) {
+          this.unsubscribe?.();
+        }
+      },
     };
   }
 
@@ -1929,14 +1952,14 @@ export class Actor<
    *
    * @param event - the event to send
    */
-  public send(event: TEvent) {
+  public send(event: TEvent | ExtractType<TEvent> | TEvent["type"]) {
     this.client.machineInstances.sendEvent(
       this.machineName,
       this.instanceName,
       { event },
       this.signal,
     ).catch((err) => {
-      this.opts?.onError?.(err);
+      this.reportError(err);
     });
   }
 
@@ -1952,6 +1975,12 @@ export class Actor<
   public [symbolObservable]() {
     return this;
   }
+}
+
+type ExtractType<T> = T extends { type: infer U } ? U : never;
+
+export interface Subscription {
+  unsubscribe(): void;
 }
 
 /**

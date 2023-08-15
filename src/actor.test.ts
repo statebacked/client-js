@@ -3,6 +3,9 @@ import {
   assertEquals,
 } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import {
+  Actor,
+  ActorState,
+  Event,
   StateBackedClient,
   StateValue,
   WSToClientMsg,
@@ -10,6 +13,16 @@ import {
 } from "./index.ts";
 import { testServer } from "./server.test.ts";
 import { defer } from "./defer.ts";
+import { ActorRef } from "npm:xstate@4.38.2";
+
+// this is just to test that our actor type conforms to the xstate notion of an actor ref
+function _testActorness<
+  TEvent extends Exclude<Event, string> = any,
+  TState extends StateValue = any,
+  TContext extends Record<string, unknown> = any,
+>(actor: Actor<TEvent, TState, TContext>) {
+  const _actorRef: ActorRef<TEvent, ActorState<TState, TContext>> = actor;
+}
 
 const port = 7008;
 
@@ -121,7 +134,6 @@ Deno.test("getActor", async () => {
   const actor = await client.machineInstances.getActor<Events, State, Context>(
     machineName,
     machineInstanceName,
-    undefined,
     abort.signal,
   );
 
@@ -133,7 +145,7 @@ Deno.test("getActor", async () => {
   assertEquals(actor.getSnapshot()?.value, expectedStates[0].state);
   assertEquals(actor.getSnapshot()?.tags, new Set(expectedStates[0].tags));
 
-  const unsubscribe = actor.subscribe((state) => {
+  const subscription = actor.subscribe((state) => {
     const expected = expectedStates.shift()!;
     assertEquals(state, actor.getSnapshot());
     assertEquals(actor.getSnapshot(), actor.getSnapshot());
@@ -146,7 +158,7 @@ Deno.test("getActor", async () => {
     assertEquals(state?.context, { public: expected.publicContext });
 
     if (expectedStates.length === 0) {
-      unsubscribe();
+      subscription.unsubscribe();
     } else {
       actor.send({ type: "next" });
     }
@@ -285,7 +297,6 @@ Deno.test("getOrCreateActor", async () => {
     {
       context: { public: expectedStates[0].publicContext },
     },
-    undefined,
     abort.signal,
   );
 
@@ -297,23 +308,25 @@ Deno.test("getOrCreateActor", async () => {
   assertEquals(actor.getSnapshot()?.value, expectedStates[0].state);
   assertEquals(actor.getSnapshot()?.tags, new Set(expectedStates[0].tags));
 
-  const unsubscribe = actor.subscribe((state) => {
-    const expected = expectedStates.shift()!;
-    assertEquals(state, actor.getSnapshot());
-    assertEquals(actor.getSnapshot(), actor.getSnapshot());
+  const subscription = actor.subscribe({
+    next: (state) => {
+      const expected = expectedStates.shift()!;
+      assertEquals(state, actor.getSnapshot());
+      assertEquals(actor.getSnapshot(), actor.getSnapshot());
 
-    assert(
-      state.value["foo"] ? state.matches("foo") : state.matches("bar.baz"),
-    );
-    assertEquals(state?.value, expected.state);
-    assertEquals(state?.done, expected.done);
-    assertEquals(state?.context, { public: expected.publicContext });
+      assert(
+        state.value["foo"] ? state.matches("foo") : state.matches("bar.baz"),
+      );
+      assertEquals(state?.value, expected.state);
+      assertEquals(state?.done, expected.done);
+      assertEquals(state?.context, { public: expected.publicContext });
 
-    if (expectedStates.length === 0) {
-      unsubscribe();
-    } else {
-      actor.send({ type: "next" });
-    }
+      if (expectedStates.length === 0) {
+        subscription.unsubscribe();
+      } else {
+        actor.send({ type: "next" });
+      }
+    },
   });
 
   await unsubscribed;
