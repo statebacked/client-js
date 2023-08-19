@@ -1850,7 +1850,7 @@ export class Actor<
   TState extends StateValue = any,
   TContext extends Record<string, unknown> = any,
 > {
-  private state: ActorState<TState>;
+  private state: ActorState<TState, TContext>;
   private subscribers: Array<Observer<ActorState<TState, TContext>>> = [];
   private unsubscribe: Unsubscribe | undefined;
 
