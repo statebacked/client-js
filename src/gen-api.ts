@@ -5,6 +5,40 @@
 
 export interface paths {
   "/machines": {
+    /** List your machines */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /machines */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description Your machines */
+        200: {
+          content: {
+            "application/json": {
+              machines: ({
+                slug: components["schemas"]["MachineSlug"];
+                /** Format: date-time */
+                createdAt: string;
+                currentVersion?: {
+                  id: components["schemas"]["MachineVersionId"];
+                  /** Format: date-time */
+                  createdAt: string;
+                  clientInfo: string;
+                };
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of machines.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
     /**
      * Create a new machine definition.
      * @description Note: No instances of a machine definition can be created until
@@ -103,6 +137,43 @@ export interface paths {
       };
     };
   };
+  "/machines/{machineSlug}/i": {
+    /** List the instances of this machine */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /machines/{machineSlug}/i */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description The instances of this machine */
+        200: {
+          content: {
+            "application/json": {
+              instances: ({
+                slug: components["schemas"]["MachineInstanceSlug"];
+                /** Format: date-time */
+                createdAt: string;
+                status: components["schemas"]["MachineInstanceStatus"];
+                machineVersion: {
+                  id: components["schemas"]["MachineVersionId"];
+                  /** Format: date-time */
+                  createdAt: string;
+                  clientInfo: string;
+                };
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of instances.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
+  };
   "/machines/{machineSlug}/i/{instanceSlug}": {
     /**
      * Get the current state of a machine instance.
@@ -178,6 +249,35 @@ export interface paths {
     };
   };
   "/machines/{machineSlug}/i/{instanceSlug}/events": {
+    /** List the transitions for this machine instance */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /machines/{machineSlug}/i/{instanceSlug}/events */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description The transitions for this machine instance */
+        200: {
+          content: {
+            "application/json": {
+              transitions: ({
+                /** Format: date-time */
+                createdAt: string;
+                state: components["schemas"]["StateValue"];
+                event: components["schemas"]["Event"];
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of transitions.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
     /**
      * Send an event to a machine instance.
      * @description Send an event to the machine instance that was previously created by
@@ -296,6 +396,35 @@ export interface paths {
     };
   };
   "/machines/{machineSlug}/v": {
+    /** List the machine versions for this machine */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /machines/{machineSlug}/v */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description The machine versions for this machine */
+        200: {
+          content: {
+            "application/json": {
+              versions: ({
+                id: components["schemas"]["MachineVersionId"];
+                /** Format: date-time */
+                createdAt: string;
+                clientInfo: string;
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of machine versions.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
     /**
      * Provisionally create a new machine definition version.
      * @description This operation returns a code upload URL and fields that can be used
@@ -584,6 +713,38 @@ export interface paths {
     };
   };
   "/idps": {
+    /** List the identity providers configured for your org */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /idps */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description The trusted identity providers for your organization */
+        200: {
+          content: {
+            "application/json": {
+              idps: ({
+                iss?: string;
+                aud?: string;
+                algs: (components["schemas"]["SigningAlgorithm"])[];
+                jwksUrl?: string;
+                mapping: {
+                  [key: string]: unknown;
+                };
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of identity providers.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
     /**
      * Upsert an identity provider
      * @description Token exchange involves exchanging an identity provider-signed token for a
@@ -643,6 +804,36 @@ export interface paths {
     };
   };
   "/token-providers": {
+    /** List the token providers configured for your org */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /token-providers */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description The token providers for your organization */
+        200: {
+          content: {
+            "application/json": {
+              tokenProviders: ({
+                service: string;
+                keyId: components["schemas"]["KeyId"];
+                mapping: {
+                  [key: string]: unknown;
+                };
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of token providers.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
     /**
      * Upsert a token provider
      * @description Token exchange involves exchanging an identity provider-signed token for a
@@ -747,6 +938,86 @@ export interface paths {
                 "urn:ietf:params:oauth:token-type:access_token";
               /** @constant */
               token_type: "Bearer";
+            };
+          };
+        };
+      };
+    };
+  };
+  "/orgs": {
+    /** List your organizations */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /orgs */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description Your organizations */
+        200: {
+          content: {
+            "application/json": {
+              orgs: ({
+                id: components["schemas"]["OrgId"];
+                name: string;
+                role: components["schemas"]["OrgMemberRole"];
+                /** Format: date-time */
+                createdAt: string;
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of organizations.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  "/keys": {
+    /** List your keys */
+    get: {
+      parameters: {
+        query?: {
+          /** @description A cursor returned from a previous call to /keys */
+          cursor?: string;
+        };
+      };
+      responses: {
+        /** @description Your keys */
+        200: {
+          content: {
+            "application/json": {
+              keys: ({
+                id: components["schemas"]["KeyId"];
+                name: string;
+                scopes: (unknown)[];
+                /** Format: date-time */
+                createdAt: string;
+              })[];
+              /**
+               * @description The cursor to use on the next call to retrieve the next page of keys.
+               * If no cursor is returned, there are no more pages to retrieve.
+               */
+              cursor?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  "/billing": {
+    /** Retrieve the link to your organization's billing portal */
+    get: {
+      responses: {
+        /** @description The link to your billing portal */
+        200: {
+          content: {
+            "application/json": {
+              /** @description The link to your billing portal */
+              url: string;
             };
           };
         };
@@ -909,6 +1180,61 @@ export interface components {
       | components["schemas"]["WSToServerSubscribeToInstanceMsg"]
       | components["schemas"]["WSToServerUnsubscribeFromInstanceMsg"]
       | components["schemas"]["WSToServerPingMsg"];
+    /**
+     * @description An identifier for an organization
+     * @example org_uHvZHpF4STWvMg8BKVCUTg
+     */
+    OrgId: string;
+    /**
+     * @description The role that a member has in an organization
+     * @enum {string}
+     */
+    OrgMemberRole: "admin" | "read" | "write";
+    /**
+     * @description An identifier for a key
+     * @example sbk_nXzdtCxESemgtxS5JX-LrA
+     */
+    KeyId: string;
+    /**
+     * @description An authorization scope associated with a key.
+     * Any request that is signed by a JWT with this key will have access to the scopes associated with that key.
+     *
+     * @enum {string}
+     */
+    KeyScope:
+      | "events.write"
+      | "events.read"
+      | "state.read"
+      | "instances.read"
+      | "instances.write"
+      | "instances.admin"
+      | "machines.read"
+      | "machines.write"
+      | "machines.admin"
+      | "machine-versions.read"
+      | "machine-versions.write"
+      | "analytics.read"
+      | "org.read"
+      | "org.write"
+      | "org.keys.write"
+      | "org-members.write"
+      | "logs.read"
+      | "tokens.admin";
+    /** @enum {string} */
+    SigningAlgorithm:
+      | "HS256"
+      | "HS384"
+      | "HS512"
+      | "PS256"
+      | "PS384"
+      | "PS512"
+      | "RS256"
+      | "RS384"
+      | "RS512"
+      | "ES256"
+      | "ES384"
+      | "ES512"
+      | "EdDSA";
   };
   responses: {
     /** @description The request was malformed. */
@@ -1110,21 +1436,7 @@ export interface components {
           /** @description The issuer claim that identifies tokens from this identity provider (one of aud or iss must be provided) */
           iss?: string;
           /** @description Allowed signing algorithms */
-          algs: (
-            | "HS256"
-            | "HS384"
-            | "HS512"
-            | "PS256"
-            | "PS384"
-            | "PS512"
-            | "RS256"
-            | "RS384"
-            | "RS512"
-            | "ES256"
-            | "ES384"
-            | "ES512"
-            | "EdDSA"
-          )[];
+          algs: (components["schemas"]["SigningAlgorithm"])[];
           /**
            * @description A mapping object that extracts claims from the identity provider tokens that token providers
            * can reference when creating the claims for State Backed tokens.
