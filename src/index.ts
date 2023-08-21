@@ -34,6 +34,14 @@ export type ClientOpts = {
   orgId?: string;
 
   /**
+   * The claims representing the user we are acting as.
+   *
+   * This will cause all requests to fail if used with a non-admin token that does not
+   * have sufficient permission to create keys.
+   */
+  actAs?: Record<string, unknown>;
+
+  /**
    * Number of milliseconds between keep alive pings on
    * any open WebSocket connections.
    *
@@ -138,10 +146,10 @@ export type TokenConfig = StateBackedTokenConfig | TokenExchangeTokenConfig;
  */
 export class StateBackedClient {
   private readonly opts:
-    & ClientOpts
+    & Omit<ClientOpts, "actAs">
     & Required<
       Pick<
-        ClientOpts,
+        Omit<ClientOpts, "actAs">,
         | "apiHost"
         | "wsPingIntervalMs"
         | "fetch"
@@ -150,7 +158,10 @@ export class StateBackedClient {
         | "hmacSha256"
         | "base64url"
       >
-    >;
+    >
+    & {
+      actAs?: string;
+    };
   private latestToken: string | undefined;
   private tokenExpiration: number | undefined;
   private inProgressTokenPromise: Promise<string> | undefined;
@@ -169,6 +180,7 @@ export class StateBackedClient {
     this.opts = {
       apiHost: opts?.apiHost ?? "https://api.statebacked.dev",
       orgId: opts?.orgId,
+      actAs: opts?.actAs ? JSON.stringify(opts.actAs) : undefined,
       WebSocket: opts?.WebSocket ??
         (globalThis as any as { WebSocket: WebSocketCtorType }).WebSocket,
       wsPingIntervalMs: opts?.wsPingIntervalMs ?? DEFAULT_WS_PING_INTERVAL,
@@ -307,6 +319,7 @@ export class StateBackedClient {
     return {
       "content-type": "application/json",
       ...(this.opts.orgId ? { "x-statebacked-org-id": this.opts.orgId } : {}),
+      ...(this.opts.actAs ? { "x-statebacked-act": this.opts.actAs } : {}),
     };
   }
 
