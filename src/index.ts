@@ -375,6 +375,33 @@ export class StateBackedClient {
    */
   public readonly machines = {
     /**
+     * Retrieve a page of machine definitions.
+     *
+     * @param opts - options for the list operation
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns a page of machine definitions
+     */
+    list: async (
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListMachinesResponse> => {
+      const url = new URL(`${this.opts.apiHost}/machines`);
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListMachinesResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+    /**
      * Create a machine.
      *
      * @param machineName - the name of the machine
@@ -474,6 +501,36 @@ export class StateBackedClient {
    * If you want to migrate running instances from one version to another, @see machineVersionMigrations.
    */
   public readonly machineVersions = {
+    /**
+     * Retrieve a page of machine versions for a machine.
+     *
+     * @param machineName - the name of the machine we are retrieving versions for
+     * @param opts - options for the list operation
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - a page of machine versions
+     */
+    list: async (
+      machineName: MachineName,
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListMachineVersionsResponse> => {
+      const url = new URL(`${this.opts.apiHost}/machines/${machineName}/v`);
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListMachineVersionsResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+
     /**
      * Provisionally create a machine version.
      *
@@ -764,6 +821,72 @@ export class StateBackedClient {
    * You can create as many instances of each machine as you'd like. Each instance is independent. It has its own name, its own state, makes its own authorization decisions, receives its own events, and handles its own delayed events.
    */
   public readonly machineInstances = {
+    /**
+     * Retrieve a page of machine instances for a machine.
+     *
+     * @param machineName - the name of the machine we are retrieving instances for
+     * @param opts - options for the list operation
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - a page of machine instances
+     */
+    list: async (
+      machineName: MachineName,
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListMachineInstancesResponse> => {
+      const url = new URL(
+        `${this.opts.apiHost}/machines/${machineName}/i`,
+      );
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListMachineInstancesResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+
+    /**
+     * Retrieve a page of transitions for a machine instance.
+     *
+     * @param machineName - the name of the machine we are retrieving transitions for
+     * @param machineInstanceName - the name of the machine instance we are retrieving transitions for
+     * @param opts - options for the list operation
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - a page of machine instance transitions
+     */
+    listTransitions: async (
+      machineName: MachineName,
+      machineInstanceName: MachineInstanceName,
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListMachineInstanceTransitionsResponse> => {
+      const url = new URL(
+        `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}/events`,
+      );
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListMachineInstanceTransitionsResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+
     /**
      * Create a machine instance.
      *
@@ -1380,6 +1503,34 @@ export class StateBackedClient {
    */
   public readonly identityProviders = {
     /**
+     * Retrieve a page of identity providers.
+     *
+     * @param opts - options for the list operation
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - a page of identity providers
+     */
+    list: async (
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListIdentityProvidersResponse> => {
+      const url = new URL(`${this.opts.apiHost}/idps`);
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListIdentityProvidersResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+
+    /**
      * Create or update an identity provider configuration.
      *
      * Token exchange involves exchanging an identity provider-signed token for a
@@ -1505,6 +1656,34 @@ export class StateBackedClient {
    */
   public readonly tokenProviders = {
     /**
+     * Retrieve a page of token providers.
+     *
+     * @param opts - options for the list operation
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - a page of token providers
+     */
+    list: async (
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListTokenProvidersResponse> => {
+      const url = new URL(`${this.opts.apiHost}/token-providers`);
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListTokenProvidersResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+
+    /**
      * Create or update a token provider configuration.
      *
      * The mapping is an object that defines the shape of the claims that will be included in
@@ -1616,6 +1795,42 @@ export type FinalizeMachineVersionMigrationResponse = NonNullable<
   api.paths[
     "/machines/{machineSlug}/migrations/{signedMachineVersionMigrationId}"
   ]["put"]["responses"]["200"]
+>["content"]["application/json"];
+
+/**
+ * Options for list operations
+ */
+export type ListOptions = {
+  /**
+   * The cursor to use to retrieve the next page of results.
+   */
+  cursor?: string;
+};
+
+export type ListMachinesResponse = NonNullable<
+  api.paths["/machines"]["get"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type ListMachineVersionsResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/v"]["get"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type ListMachineInstancesResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/i"]["get"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type ListMachineInstanceTransitionsResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}/events"]["get"][
+    "responses"
+  ]["200"]
+>["content"]["application/json"];
+
+export type ListIdentityProvidersResponse = NonNullable<
+  api.paths["/idps"]["get"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type ListTokenProvidersResponse = NonNullable<
+  api.paths["/token-providers"]["get"]["responses"]["200"]
 >["content"]["application/json"];
 
 export type CreateMachineRequest = NonNullable<
