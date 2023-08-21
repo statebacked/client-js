@@ -1771,6 +1771,22 @@ export class StateBackedClient {
         ),
       )).access_token,
   };
+
+  public readonly billing = {
+    get: async (
+      signal?: AbortSignal,
+    ): Promise<GetBillingResponse> =>
+      adaptErrors<GetBillingResponse>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/billing`,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      ),
+  };
 }
 
 function delayPromise(ms: number) {
@@ -1795,6 +1811,10 @@ export type FinalizeMachineVersionMigrationResponse = NonNullable<
   api.paths[
     "/machines/{machineSlug}/migrations/{signedMachineVersionMigrationId}"
   ]["put"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type GetBillingResponse = NonNullable<
+  api.paths["/billing"]["get"]["responses"]["200"]
 >["content"]["application/json"];
 
 /**
