@@ -1853,6 +1853,22 @@ export class StateBackedClient {
   };
 
   public readonly orgs = {
+    create: async (
+      req: CreateOrgRequest,
+      signal?: AbortSignal,
+    ): Promise<CreateOrgResponse> =>
+      adaptErrors<CreateOrgResponse>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/orgs`,
+          {
+            method: "POST",
+            headers: await this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
+
     list: async (
       opts?: ListOptions,
       signal?: AbortSignal,
@@ -1912,8 +1928,31 @@ export class StateBackedClient {
         ),
       );
     },
+
+    delete: async (
+      keyId: string,
+      signal?: AbortSignal,
+    ): Promise<void> =>
+      adaptErrors<void>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/keys/${keyId}`,
+          {
+            method: "DELETE",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      ),
   };
 }
+
+export type CreateOrgRequest = NonNullable<
+  api.paths["/orgs"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+export type CreateOrgResponse = NonNullable<
+  api.paths["/orgs"]["post"]["responses"]["200"]
+>["content"]["application/json"];
 
 export type CreateKeyRequest = NonNullable<
   api.paths["/keys"]["post"]["requestBody"]
