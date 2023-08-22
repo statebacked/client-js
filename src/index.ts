@@ -1823,6 +1823,29 @@ export class StateBackedClient {
       );
     },
   };
+
+  public readonly keys = {
+    list: async (
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListKeysResponse> => {
+      const url = new URL(`${this.opts.apiHost}/keys`);
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListKeysResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+  };
 }
 
 function delayPromise(ms: number) {
@@ -1865,6 +1888,10 @@ export type ListOptions = {
 
 export type ListOrgsResponse = NonNullable<
   api.paths["/orgs"]["get"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type ListKeysResponse = NonNullable<
+  api.paths["/keys"]["get"]["responses"]["200"]
 >["content"]["application/json"];
 
 export type ListMachinesResponse = NonNullable<
