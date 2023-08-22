@@ -22,12 +22,7 @@ export interface paths {
                 slug: components["schemas"]["MachineSlug"];
                 /** Format: date-time */
                 createdAt: string;
-                currentVersion?: {
-                  id: components["schemas"]["MachineVersionId"];
-                  /** Format: date-time */
-                  createdAt: string;
-                  clientInfo: string;
-                };
+                currentVersion?: components["schemas"]["MachineVersionInfo"];
               })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of machines.
@@ -55,6 +50,31 @@ export interface paths {
     };
   };
   "/machines/{machineSlug}": {
+    /**
+     * Get a machine definition.
+     * @description Retrieve the machine definition
+     */
+    get: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition. */
+          machineSlug: components["schemas"]["MachineSlug"];
+        };
+      };
+      responses: {
+        /** @description The machine was retrieved successfully. */
+        200: {
+          content: {
+            "application/json": {
+              /** Format: date-time */
+              createdAt: string;
+              currentVersion?: components["schemas"]["MachineVersionInfo"];
+            };
+          };
+        };
+        403: components["responses"]["Forbidden"];
+      };
+    };
     /**
      * Create a new machine instance.
      * @description Create a new instance of the machine definition with the given slug.
@@ -156,12 +176,7 @@ export interface paths {
                 /** Format: date-time */
                 createdAt: string;
                 status: components["schemas"]["MachineInstanceStatus"];
-                machineVersion: {
-                  id: components["schemas"]["MachineVersionId"];
-                  /** Format: date-time */
-                  createdAt: string;
-                  clientInfo: string;
-                };
+                machineVersion: components["schemas"]["MachineVersionInfo"];
               })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of instances.
@@ -244,6 +259,39 @@ export interface paths {
         /** @description The machine instance was deleted successfully. */
         204: never;
         400: components["responses"]["BadRequest"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+  };
+  "/machines/{machineSlug}/i/{instanceSlug}/admin": {
+    /**
+     * Get the administrative state of an instance
+     * @description Retrieve the state of the machine instance that was previously created by
+     * calling `POST /machines/{machineSlug}` and may have had events sent to it
+     * by calling `POST /machines/{machineSlug}/i/{instanceSlug}/events`.
+     *
+     * No machine authorizers will be called to authorize this read so this requires
+     * instances.read scope.
+     *
+     * The full context for the instance (instead of only public context) will be returned.
+     */
+    get: {
+      parameters: {
+        path: {
+          /** @description The slug/name for the machine definition. */
+          machineSlug: components["schemas"]["MachineSlug"];
+          /** @description The slug/name for the machine instance. */
+          instanceSlug: components["schemas"]["MachineInstanceSlug"];
+        };
+      };
+      responses: {
+        /** @description The instance was retrieved successfully. */
+        200: {
+          content: {
+            "application/json":
+              components["schemas"]["AdministrativeInstanceState"];
+          };
+        };
         403: components["responses"]["Forbidden"];
       };
     };
@@ -409,12 +457,7 @@ export interface paths {
         200: {
           content: {
             "application/json": {
-              versions: ({
-                id: components["schemas"]["MachineVersionId"];
-                /** Format: date-time */
-                createdAt: string;
-                clientInfo: string;
-              })[];
+              versions: (components["schemas"]["MachineVersionInfo"])[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of machine versions.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -1071,6 +1114,21 @@ export interface components {
     CompoundStateValue: {
       [key: string]: components["schemas"]["StateValue"] | undefined;
     };
+    /** @description The full state of a machine instance. */
+    AdministrativeInstanceState: {
+      state: components["schemas"]["StateValue"];
+      /** @description The full context of the machine instance. */
+      context: {
+        [key: string]: unknown;
+      };
+      status: components["schemas"]["MachineInstanceStatus"];
+      /** @description Array of tags for the current states */
+      tags: (string)[];
+      /** @description Is the state machine complete */
+      done: boolean;
+      machineVersion: components["schemas"]["MachineVersionInfo"];
+      desiredMachineVersion?: components["schemas"]["MachineVersionInfo"];
+    };
     /** @description The state of a machine instance. */
     State: {
       state: components["schemas"]["StateValue"];
@@ -1235,6 +1293,12 @@ export interface components {
       | "ES384"
       | "ES512"
       | "EdDSA";
+    MachineVersionInfo: {
+      id: components["schemas"]["MachineVersionId"];
+      /** Format: date-time */
+      createdAt: string;
+      clientInfo: string;
+    };
   };
   responses: {
     /** @description The request was malformed. */
