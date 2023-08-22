@@ -1018,6 +1018,20 @@ export interface paths {
         };
       };
     };
+    /** @description Create an org */
+    post: {
+      requestBody: components["requestBodies"]["CreateOrg"];
+      responses: {
+        /** @description New org */
+        200: {
+          content: {
+            "application/json": {
+              id: components["schemas"]["OrgId"];
+            };
+          };
+        };
+      };
+    };
   };
   "/keys": {
     /** List your keys */
@@ -1063,6 +1077,21 @@ export interface paths {
             };
           };
         };
+      };
+    };
+  };
+  "/keys/{keyId}": {
+    /** @description Delete a key */
+    delete: {
+      parameters: {
+        path: {
+          /** @description The key ID to delete */
+          keyId: components["schemas"]["KeyId"];
+        };
+      };
+      responses: {
+        /** @description The key was deleted */
+        204: never;
       };
     };
   };
@@ -1618,6 +1647,14 @@ export interface components {
            * @enum {string}
            */
           use?: "production" | "ci";
+        };
+      };
+    };
+    /** @description Create an org */
+    CreateOrg?: {
+      content: {
+        "application/json": {
+          name: string;
         };
       };
     };
