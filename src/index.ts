@@ -1876,6 +1876,22 @@ export class StateBackedClient {
   };
 
   public readonly keys = {
+    create: async (
+      req: CreateKeyRequest,
+      signal?: AbortSignal,
+    ): Promise<CreateKeyResponse> =>
+      adaptErrors<CreateKeyResponse>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/keys`,
+          {
+            method: "POST",
+            headers: await this.headers,
+            body: JSON.stringify(req),
+            signal,
+          },
+        ),
+      ),
+
     list: async (
       opts?: ListOptions,
       signal?: AbortSignal,
@@ -1898,6 +1914,14 @@ export class StateBackedClient {
     },
   };
 }
+
+export type CreateKeyRequest = NonNullable<
+  api.paths["/keys"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+export type CreateKeyResponse = NonNullable<
+  api.paths["/keys"]["post"]["responses"]["200"]
+>["content"]["application/json"];
 
 function delayPromise(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
