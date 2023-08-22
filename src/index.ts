@@ -1800,6 +1800,29 @@ export class StateBackedClient {
         ),
       ),
   };
+
+  public readonly orgs = {
+    list: async (
+      opts?: ListOptions,
+      signal?: AbortSignal,
+    ): Promise<ListOrgsResponse> => {
+      const url = new URL(`${this.opts.apiHost}/orgs`);
+      if (opts?.cursor) {
+        url.searchParams.set("cursor", opts.cursor);
+      }
+
+      return adaptErrors<ListOrgsResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+  };
 }
 
 function delayPromise(ms: number) {
@@ -1839,6 +1862,10 @@ export type ListOptions = {
    */
   cursor?: string;
 };
+
+export type ListOrgsResponse = NonNullable<
+  api.paths["/orgs"]["get"]["responses"]["200"]
+>["content"]["application/json"];
 
 export type ListMachinesResponse = NonNullable<
   api.paths["/machines"]["get"]["responses"]["200"]
