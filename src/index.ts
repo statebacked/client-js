@@ -414,6 +414,30 @@ export class StateBackedClient {
         ),
       );
     },
+
+    /**
+     * Retrieve a machine definition.
+     *
+     * @param machineName - the name of the machine we are retrieving
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns the machine definition
+     */
+    get: async (
+      machineName: MachineName,
+      signal?: AbortSignal,
+    ): Promise<GetMachineResponse> => {
+      return adaptErrors<GetMachineResponse>(
+        await this.opts.fetch(
+          `${this.opts.apiHost}/machines/${machineName}`,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+
     /**
      * Create a machine.
      *
@@ -1057,39 +1081,6 @@ export class StateBackedClient {
       ),
 
     /**
-     * Update the desired machine version for an existing instance.
-     *
-     * The instance will not be upgraded immediately but will be upgraded
-     * the next time an event is sent to it from a settled state.
-     *
-     * @param machineName - the name of the machine we are updating the desired version for
-     * @param instanceName - the name of the machine instance we are updating the desired version for
-     * @param req - desired version information
-     * @param signal - an optional AbortSignal to abort the request
-     *
-     * @throws errors.NoMigrationPathError if there is no path through the
-     * set of existing migrations from the current instance version to
-     * the desired instance version.
-     */
-    updateDesiredVersion: async (
-      machineName: MachineName,
-      instanceName: MachineInstanceName,
-      req: UpdateDesiredMachineInstanceVersionRequest,
-      signal?: AbortSignal,
-    ): Promise<void> =>
-      adaptErrors<void>(
-        await this.opts.fetch(
-          `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/v`,
-          {
-            method: "PUT",
-            headers: await this.headers,
-            body: JSON.stringify(req),
-            signal,
-          },
-        ),
-      ),
-
-    /**
      * Convenience method to ensure that a machine instance exists.
      *
      * If the machine exists, it will read its state. Otherwise, it will create the machine and return its state.
@@ -1338,6 +1329,66 @@ export class StateBackedClient {
           ),
         );
       },
+    },
+
+    admin: {
+      /**
+       * Retrieve the administrative state of a machine instance.
+       *
+       * @param machineName - the name of the machine we are retrieving an instance of
+       * @param machineInstanceName - the name of the machine instance we are retrieving
+       * @param signal - an optional AbortSignal to abort the request
+       * @returns the administrative state of the machine
+       */
+      get: async (
+        machineName: MachineName,
+        machineInstanceName: MachineInstanceName,
+        signal?: AbortSignal,
+      ): Promise<GetAdministrativeInstanceStateResponse> => {
+        return adaptErrors<GetAdministrativeInstanceStateResponse>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}/i/${machineInstanceName}/admin`,
+            {
+              method: "GET",
+              headers: await this.headers,
+              signal,
+            },
+          ),
+        );
+      },
+
+      /**
+       * Update the desired machine version for an existing instance.
+       *
+       * The instance will not be upgraded immediately but will be upgraded
+       * the next time an event is sent to it from a settled state.
+       *
+       * @param machineName - the name of the machine we are updating the desired version for
+       * @param instanceName - the name of the machine instance we are updating the desired version for
+       * @param req - desired version information
+       * @param signal - an optional AbortSignal to abort the request
+       *
+       * @throws errors.NoMigrationPathError if there is no path through the
+       * set of existing migrations from the current instance version to
+       * the desired instance version.
+       */
+      updateDesiredVersion: async (
+        machineName: MachineName,
+        instanceName: MachineInstanceName,
+        req: UpdateDesiredMachineInstanceVersionRequest,
+        signal?: AbortSignal,
+      ): Promise<void> =>
+        adaptErrors<void>(
+          await this.opts.fetch(
+            `${this.opts.apiHost}/machines/${machineName}/i/${instanceName}/v`,
+            {
+              method: "PUT",
+              headers: await this.headers,
+              body: JSON.stringify(req),
+              signal,
+            },
+          ),
+        ),
     },
   };
 
@@ -2004,6 +2055,16 @@ export type TokenExchangeRequest = {
 
 type TokenExchangeResponse = NonNullable<
   api.paths["/tokens"]["post"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type GetMachineResponse = NonNullable<
+  api.paths["/machines/{machineSlug}"]["get"]["responses"]["200"]
+>["content"]["application/json"];
+
+export type GetAdministrativeInstanceStateResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/i/{instanceSlug}/admin"]["get"][
+    "responses"
+  ]["200"]
 >["content"]["application/json"];
 
 export type MachineName = api.components["schemas"]["MachineSlug"];
