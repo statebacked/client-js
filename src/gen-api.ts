@@ -1050,6 +1050,21 @@ export interface paths {
         };
       };
     };
+    /** @description Create a key */
+    post: {
+      requestBody: components["requestBodies"]["CreateKey"];
+      responses: {
+        /** @description New key */
+        200: {
+          content: {
+            "application/json": {
+              id: components["schemas"]["KeyId"];
+              key: string;
+            };
+          };
+        };
+      };
+    };
   };
   "/billing": {
     /** Retrieve the link to your organization's billing portal */
@@ -1583,6 +1598,26 @@ export interface components {
             "urn:ietf:params:oauth:token-type:access_token";
           /** @description A JWT signed by one of your configured identity providers (based on configurations posted to /idps) */
           subject_token: string;
+        };
+      };
+    };
+    /** @description Create a key */
+    CreateKey?: {
+      content: {
+        "application/json": {
+          name: string;
+          /**
+           * @description The scopes that any request with a token signed by this key will have access to.
+           * You must either pass `scopes` or `use`.
+           */
+          scopes?: (components["schemas"]["KeyScope"])[];
+          /**
+           * @description The intended use for this key. This is a shorthand way to set a reasonable set of scopes.
+           * You must either pass `scopes` or `use`.
+           *
+           * @enum {string}
+           */
+          use?: "production" | "ci";
         };
       };
     };
