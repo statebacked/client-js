@@ -66,9 +66,11 @@ export interface paths {
         200: {
           content: {
             "application/json": {
-              /** Format: date-time */
-              createdAt: string;
-              currentVersion?: components["schemas"]["MachineVersionInfo"];
+              machine: {
+                /** Format: date-time */
+                createdAt: string;
+                currentVersion?: components["schemas"]["MachineVersionInfo"];
+              };
             };
           };
         };
@@ -1172,6 +1174,8 @@ export interface components {
       done: boolean;
       machineVersion: components["schemas"]["MachineVersionInfo"];
       desiredMachineVersion?: components["schemas"]["MachineVersionInfo"];
+      /** Format: date-time */
+      createdAt: string;
     };
     /** @description The state of a machine instance. */
     State: {
