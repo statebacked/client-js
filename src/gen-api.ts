@@ -1009,6 +1009,10 @@ export interface paths {
                 role: components["schemas"]["OrgMemberRole"];
                 /** Format: date-time */
                 createdAt: string;
+                limits: {
+                  monthlyEventsLimit: number;
+                  monthlyReadsLimit: number;
+                };
               })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of organizations.
@@ -1659,6 +1663,18 @@ export interface components {
       content: {
         "application/json": {
           name: string;
+          /**
+           * @description If true, a key, trusted identity provider, and token provider
+           * that support anonymous access will be created for the org.
+           * The usual authorization checks still apply at the machine level
+           * so individual reads and writes for anonymous access depends on
+           * your `allowRead` and `allowWrite` implementations.
+           * Auth context for anonymous tokens includes Session ID (`sid`),
+           * Device ID (`did`), and `{ "auth": "anonymous" }`.
+           *
+           * @default true
+           */
+          allowAnonymousAccess?: boolean;
         };
       };
     };
