@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.192.0/http/mod.ts";
 import { defer } from "./defer.ts";
+import { assertEquals } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 
 export async function testServer(
   port: number,
@@ -14,5 +15,10 @@ export async function testServer(
 
   await whenListening;
 
-  return [abort, server] as const;
+  return [
+    abort,
+    server.then(() => {
+      assertEquals(matchers.length, 0);
+    }),
+  ] as const;
 }

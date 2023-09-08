@@ -1,11 +1,15 @@
 import {
   assert,
   assertEquals,
-  assertNotEquals,
 } from "https://deno.land/std@0.192.0/testing/asserts.ts";
 import { StateBackedClient, TokenExchangeTokenConfig } from "./index.ts";
 import { testServer } from "./server.test.ts";
 import { signToken } from "https://deno.land/x/statebacked_token/mod.ts";
+import { anonymousTokenConfig } from "./anonymous-token-config.ts";
+import {
+  decode as b64UrlDecode,
+  encode as b64UrlEncode,
+} from "https://deno.land/std@0.192.0/encoding/base64url.ts";
 
 const port = 7001;
 
@@ -128,9 +132,150 @@ Deno.test("state backed token exchange with promise token when expired", async (
   assert(client!["tokenExpiration"]! > Date.now());
 });
 
+async function isValidAnonymousToken(
+  orgId: string,
+  actual: string,
+  expected: string,
+  claimCheck: (claims: Record<string, unknown>) => boolean | Promise<boolean> =
+    () => true,
+) {
+  const expectedParts = expected.split(".");
+  const parts = actual.split(".");
+  const sig = parts[2];
+  const data = parts.slice(0, 2).join(".");
+  const k = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(orgId),
+    {
+      name: "HMAC",
+      hash: { name: "SHA-256" },
+    },
+    false,
+    ["verify"],
+  );
+
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    k,
+    b64UrlDecode(sig),
+    new TextEncoder().encode(data),
+  );
+  if (!valid) {
+    return false;
+  }
+
+  const claims = JSON.parse(
+    new TextDecoder().decode(b64UrlDecode(parts[1])),
+  );
+  const expectedClaims = JSON.parse(
+    new TextDecoder().decode(b64UrlDecode(expectedParts[1])),
+  );
+  assertEquals(claims, expectedClaims);
+
+  const header = JSON.parse(
+    new TextDecoder().decode(b64UrlDecode(parts[0])),
+  );
+  const expectedHeader = JSON.parse(
+    new TextDecoder().decode(b64UrlDecode(expectedParts[0])),
+  );
+  assertEquals(header, expectedHeader);
+
+  return claimCheck(claims);
+}
+
+Deno.test("anonymous token, default session", async () => {
+  const orgId = "org-id";
+  const tokenConfig = {
+    anonymous: {
+      orgId,
+    },
+  };
+
+  const anonTokenConfig = anonymousTokenConfig(tokenConfig, {
+    base64url: (x) => b64UrlEncode(x),
+    hmacSha256,
+  });
+
+  await testAuthToken(
+    () =>
+      new StateBackedClient(tokenConfig, {
+        apiHost: `http://localhost:${port}`,
+      }),
+    anonTokenConfig,
+    isValidAnonymousToken.bind(null, orgId),
+  );
+});
+
+Deno.test("anonymous token, provided session", async () => {
+  const orgId = "org-id";
+  const sid = "session-id";
+  const tokenConfig = {
+    anonymous: {
+      orgId,
+      getSessionId: () => sid,
+    },
+  };
+
+  const anonTokenConfig = anonymousTokenConfig(tokenConfig, {
+    base64url: (x) => b64UrlEncode(x),
+    hmacSha256,
+  });
+
+  await testAuthToken(
+    () =>
+      new StateBackedClient(tokenConfig, {
+        apiHost: `http://localhost:${port}`,
+      }),
+    anonTokenConfig,
+    (actual, expected) =>
+      isValidAnonymousToken(
+        orgId,
+        actual,
+        expected,
+        (claims) => claims.sid === sid,
+      ),
+  );
+});
+
+Deno.test("anonymous token, provided device", async () => {
+  const orgId = "org-id";
+  const did = "device-id";
+  const tokenConfig = {
+    anonymous: {
+      orgId,
+      getDeviceId: () => did,
+    },
+  };
+
+  const anonTokenConfig = anonymousTokenConfig(tokenConfig, {
+    base64url: (x) => b64UrlEncode(x),
+    hmacSha256,
+  });
+
+  await testAuthToken(
+    () =>
+      new StateBackedClient(tokenConfig, {
+        apiHost: `http://localhost:${port}`,
+      }),
+    anonTokenConfig,
+    (actual, expected) =>
+      isValidAnonymousToken(
+        orgId,
+        actual,
+        expected,
+        (claims) => claims.did === did,
+      ),
+  );
+});
+
 async function testAuthToken(
   getClient: (expectedToken: string, port: number) => StateBackedClient,
   tokenExchangeParams?: TokenExchangeTokenConfig,
+  isCorrectIdentityProviderToken: (
+    actualToken: string,
+    expectedToken: string,
+  ) => boolean | Promise<boolean> = (actualToken, expectedToken) =>
+    actualToken === expectedToken,
 ) {
   const machineName = "machine";
   const instanceName = "inst";
@@ -191,7 +336,12 @@ async function testAuthToken(
             body.requested_token_type,
             "urn:ietf:params:oauth:token-type:access_token",
           );
-          assertEquals(body.subject_token, subjectToken);
+          assert(
+            await isCorrectIdentityProviderToken(
+              body.subject_token as string,
+              subjectToken,
+            ),
+          );
 
           return new Response(
             JSON.stringify({
@@ -217,4 +367,25 @@ async function testAuthToken(
 
   abort.abort();
   await server;
+}
+
+async function hmacSha256(key: Uint8Array, data: Uint8Array) {
+  const k = await crypto.subtle.importKey(
+    "raw",
+    key,
+    {
+      name: "HMAC",
+      hash: { name: "SHA-256" },
+    },
+    false,
+    ["sign"],
+  );
+
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    k,
+    data,
+  );
+
+  return new Uint8Array(sig);
 }

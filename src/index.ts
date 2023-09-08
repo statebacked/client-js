@@ -1,6 +1,16 @@
+import {
+  AnonymousTokenConfig,
+  anonymousTokenConfig,
+} from "./anonymous-token-config.ts";
+import { ClientOpts } from "./client-opts.ts";
 import * as errors from "./errors.ts";
 import * as api from "./gen-api.ts";
 import { ReconnectingWebSocket } from "./reconnecting-web-socket.ts";
+import { EnhancedState, enhanceState, toStrings } from "./state-utils.ts";
+import {
+  StateBackedTokenConfig,
+  TokenExchangeTokenConfig,
+} from "./token-config.ts";
 import {
   BlobCtorType,
   Fetch,
@@ -8,125 +18,22 @@ import {
   FormDataCtorType,
   WebSocketCtorType,
 } from "./web-types.ts";
-import { EnhancedState, enhanceState, toStrings } from "./state-utils.ts";
 
 export { errors };
 
 const DEFAULT_WS_PING_INTERVAL = 5 * 60 * 1000;
 
-/**
- * Options for the StateBacked client.
- */
-export type ClientOpts = {
-  /**
-   * The API host to use. Defaults to `https://api.statebacked.dev`.
-   */
-  apiHost?: string;
+export type TokenConfig =
+  | StateBackedTokenConfig
+  | TokenExchangeTokenConfig
+  | AnonymousTokenConfig;
 
-  /**
-   * The organization ID to use.
-   * Only required if you are using an admin session (e.g. the smply CLI)
-   * AND you belong to more than one organization.
-   *
-   * If you are using a JWT signed with a key generated with `smply keys create`
-   * (the standard case), you do not need to set this.
-   */
-  orgId?: string;
-
-  /**
-   * The claims representing the user we are acting as.
-   *
-   * This will cause all requests to fail if used with a non-admin token that does not
-   * have sufficient permission to create keys.
-   */
-  actAs?: Record<string, unknown>;
-
-  /**
-   * Number of milliseconds between keep alive pings on
-   * any open WebSocket connections.
-   *
-   * Defaults to 5 minutes.
-   */
-  wsPingIntervalMs?: number;
-
-  /**
-   * WebSocket implementation to use.
-   *
-   * Defaults to globalThis.WebSocket.
-   */
-  WebSocket?: WebSocketCtorType;
-
-  /**
-   * FormData implementation to use.
-   *
-   * Defaults to globalThis.FormData.
-   */
-  FormData?: FormDataCtorType;
-
-  /**
-   * Blob implementation to use.
-   *
-   * Defaults to globalThis.Blob.
-   */
-  Blob?: BlobCtorType;
-
-  /**
-   * Fetch implementation to use.
-   *
-   * Defaults to globalThis.fetch.
-   */
-  fetch?: Fetch;
-
-  /**
-   * HMAC SHA256 implementation to use.
-   *
-   * Should return the HMAC SHA256 of the data using the key.
-   */
-  hmacSha256?: (key: Uint8Array, data: Uint8Array) => Promise<Uint8Array>;
-
-  /**
-   * Base64url implementation to use.
-   */
-  base64url?: (data: Uint8Array) => string;
+export type {
+  AnonymousTokenConfig,
+  ClientOpts,
+  StateBackedTokenConfig,
+  TokenExchangeTokenConfig,
 };
-
-/**
- * Token configuration to directly provide a State Backed token
- * that the client will use for all requests.
- */
-export type StateBackedTokenConfig = {
-  /**
-   * The State Backed token to use or a function returning a promise for that token.
-   */
-  token: string | (() => Promise<string>);
-};
-
-/**
- * Token configuration allowing the State Backed client to exchange
- * an identity provider token for a State Backed token.
- *
- * Token exchange must be configured prior to use by creating at least one identity provider and at least one token provider.
- */
-export type TokenExchangeTokenConfig = {
-  /**
-   * The identity provider token to exchange for a State Backed token or a function returning a promise for that token.
-   *
-   * For example, this might be your Auth0 or Supabase access token.
-   */
-  identityProviderToken: string | (() => Promise<string>);
-
-  /**
-   * The name of the token provider service to use to generate the State Backed token.
-   */
-  tokenProviderService: string;
-
-  /**
-   * The State Backed organization ID to use.
-   */
-  orgId: string;
-};
-
-export type TokenConfig = StateBackedTokenConfig | TokenExchangeTokenConfig;
 
 /**
  * A client for the StateBacked.dev API.
@@ -216,6 +123,10 @@ export class StateBackedClient {
           .replace(/=/g, "");
       }),
     };
+
+    if (typeof tokenConfig !== "string" && "anonymous" in tokenConfig) {
+      this.tokenConfig = anonymousTokenConfig(tokenConfig, this.opts);
+    }
 
     // let's eagerly retrieve the token
     this.token().catch(() => {
