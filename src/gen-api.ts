@@ -1183,6 +1183,8 @@ export interface components {
     };
     /** @description The state of a machine instance. */
     State: {
+      /** @description Timestamp for when the state was created */
+      ts: number;
       state: components["schemas"]["StateValue"];
       /**
        * @description The public context of the machine instance.
@@ -1234,6 +1236,8 @@ export interface components {
       publicContext: {
         [key: string]: unknown;
       };
+      /** @description Timestamp for when the state was created */
+      ts: number;
       state: components["schemas"]["StateValue"];
       /** @description Array of tags for the current states */
       tags: (string)[];

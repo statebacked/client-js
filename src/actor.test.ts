@@ -92,6 +92,7 @@ Deno.test("getActor", async () => {
                 type: "instance-update",
                 machineInstanceName: msg.machineInstanceName,
                 machineName: msg.machineName,
+                ts: Date.now(),
                 ...statesToSend.shift()!,
               };
               socket.send(JSON.stringify(update));
@@ -252,6 +253,7 @@ Deno.test("getOrCreateActor", async () => {
                 type: "instance-update",
                 machineInstanceName: msg.machineInstanceName,
                 machineName: msg.machineName,
+                ts: Date.now(),
                 ...statesToSend.shift()!,
               };
               socket.send(JSON.stringify(update));

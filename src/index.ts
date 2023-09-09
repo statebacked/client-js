@@ -1113,6 +1113,7 @@ export class StateBackedClient {
                   publicContext: msg.publicContext,
                   done: msg.done,
                   tags: msg.tags,
+                  ts: msg.ts,
                 }));
                 return;
               }

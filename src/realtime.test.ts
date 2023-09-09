@@ -39,6 +39,7 @@ Deno.test("receive subscription items", async () => {
           assertEquals(++subscribeCount, 1);
           const stateUpdate1: WSToClientMsg = {
             type: "instance-update",
+            ts: Date.now(),
             machineInstanceName: msg.machineInstanceName,
             machineName: msg.machineName,
             publicContext: { token },
