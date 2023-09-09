@@ -2233,15 +2233,15 @@ export class Actor<
     const unsub = this.client.machineInstances.subscribe(
       this.machineName,
       this.instanceName,
-      (event) => {
-        if (event.ts < this.latestReceivedTs) {
+      (state) => {
+        if (state.ts < this.latestReceivedTs) {
           return;
         }
-        this.latestReceivedTs = event.ts;
+        this.latestReceivedTs = state.ts;
         this._inFlightEvents = this._inFlightEvents.filter((event) =>
-          !!event.ts && event.ts < this.latestReceivedTs
+          !event.ts || event.ts > this.latestReceivedTs
         );
-        this.setState(new ActorState(event));
+        this.setState(new ActorState(state));
       },
       (err) => {
         this.reportError(err);
@@ -2314,11 +2314,28 @@ export class Actor<
       { event },
       this.signal,
     ).then(({ ts }) => {
-      if (!ts || ts < this.latestReceivedTs) {
+      if (!ts || ts <= this.latestReceivedTs) {
+        // we already received a state update that includes this event
+        // it's no longer in-flight
+
         this._inFlightEvents = this._inFlightEvents.filter((event) =>
           event !== e
         );
+        const state = this.getSnapshot();
+        // report a state change since our in-flight events changed
+        this.setState(
+          new ActorState({
+            done: state.done,
+            state: state.value,
+            tags: Array.from(state.tags),
+            ts: this.latestReceivedTs,
+            publicContext: state.context.public,
+          }),
+        );
       } else {
+        // we haven't received a state update that includes this event yet
+        // leave it in progress and let the state update handler remove it
+
         const event = this._inFlightEvents.find((event) => event === e);
         if (!event) {
           return;

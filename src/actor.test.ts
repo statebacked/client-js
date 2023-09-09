@@ -42,17 +42,20 @@ Deno.test("getActor", async () => {
       done: boolean;
       tags: Array<string>;
       publicContext: Context;
+      ts: number;
     }
   > = [{
     state: { foo: "bar" },
     done: false,
     tags: ["hi"],
     publicContext: { "hello": "world" },
+    ts: 100,
   }, {
     state: { bar: "baz" },
     done: true,
     tags: ["bye"],
     publicContext: { "hello": "world2" },
+    ts: 110,
   }];
   const statesToSend = [...expectedStates];
 
@@ -92,7 +95,6 @@ Deno.test("getActor", async () => {
                 type: "instance-update",
                 machineInstanceName: msg.machineInstanceName,
                 machineName: msg.machineName,
-                ts: Date.now(),
                 ...statesToSend.shift()!,
               };
               socket.send(JSON.stringify(update));
@@ -202,17 +204,20 @@ Deno.test("getOrCreateActor", async () => {
       done: boolean;
       tags: Array<string>;
       publicContext: Context;
+      ts: number;
     }
   > = [{
     state: { foo: "bar" },
     done: false,
     tags: ["hi"],
     publicContext: { "hello": "world" },
+    ts: 100,
   }, {
     state: { bar: "baz" },
     done: true,
     tags: ["bye"],
     publicContext: { "hello": "world2" },
+    ts: 101,
   }];
   const statesToSend = [...expectedStates];
 
@@ -268,7 +273,6 @@ Deno.test("getOrCreateActor", async () => {
                 type: "instance-update",
                 machineInstanceName: msg.machineInstanceName,
                 machineName: msg.machineName,
-                ts: Date.now(),
                 ...statesToSend.shift()!,
               };
               socket.send(JSON.stringify(update));
