@@ -140,6 +140,8 @@ Deno.test("getActor", async () => {
     abort.signal,
   );
 
+  assertEquals(actor.inFlightEvents.length, 0);
+
   assertEquals(actor.getSnapshot(), actor.getSnapshot());
   assertEquals(actor.getSnapshot()?.context, {
     public: expectedStates[0].publicContext,
@@ -148,26 +150,39 @@ Deno.test("getActor", async () => {
   assertEquals(actor.getSnapshot()?.value, expectedStates[0].state);
   assertEquals(actor.getSnapshot()?.tags, new Set(expectedStates[0].tags));
 
+  let err;
+
   const subscription = actor.subscribe((state) => {
-    const expected = expectedStates.shift()!;
-    assertEquals(state, actor.getSnapshot());
-    assertEquals(actor.getSnapshot(), actor.getSnapshot());
+    try {
+      const expected = expectedStates.shift()!;
+      assertEquals(state, actor.getSnapshot());
+      assertEquals(actor.getSnapshot(), actor.getSnapshot());
 
-    assert(
-      state.value["foo"] ? state.matches("foo") : state.matches("bar.baz"),
-    );
-    assertEquals(state?.value, expected.state);
-    assertEquals(state?.done, expected.done);
-    assertEquals(state?.context, { public: expected.publicContext });
+      assert(
+        state.value["foo"] ? state.matches("foo") : state.matches("bar.baz"),
+      );
+      assertEquals(state?.value, expected.state);
+      assertEquals(state?.done, expected.done);
+      assertEquals(state?.context, { public: expected.publicContext });
 
-    if (expectedStates.length === 0) {
-      subscription.unsubscribe();
-    } else {
-      actor.send({ type: "next" });
+      assertEquals(actor.inFlightEvents.length, 0);
+
+      if (expectedStates.length === 0) {
+        subscription.unsubscribe();
+      } else {
+        const event = { type: "next" as const };
+        actor.send(event);
+        assertEquals(actor.inFlightEvents.length, 1);
+        assertEquals(actor.inFlightEvents[0], event);
+      }
+    } catch (error) {
+      err = error;
     }
   });
 
   await unsubscribed;
+
+  assertEquals(err, undefined);
 
   assert(didUnsubscribe);
 
@@ -316,28 +331,44 @@ Deno.test("getOrCreateActor", async () => {
   assertEquals(actor.getSnapshot()?.value, expectedStates[0].state);
   assertEquals(actor.getSnapshot()?.tags, new Set(expectedStates[0].tags));
 
+  assertEquals(actor.inFlightEvents.length, 0);
+
+  let err;
+
   const subscription = actor.subscribe({
     next: (state) => {
-      const expected = expectedStates.shift()!;
-      assertEquals(state, actor.getSnapshot());
-      assertEquals(actor.getSnapshot(), actor.getSnapshot());
+      try {
+        const expected = expectedStates.shift()!;
+        assertEquals(state, actor.getSnapshot());
+        assertEquals(actor.getSnapshot(), actor.getSnapshot());
 
-      assert(
-        state.value["foo"] ? state.matches("foo") : state.matches("bar.baz"),
-      );
-      assertEquals(state?.value, expected.state);
-      assertEquals(state?.done, expected.done);
-      assertEquals(state?.context, { public: expected.publicContext });
+        assert(
+          state.value["foo"] ? state.matches("foo") : state.matches("bar.baz"),
+        );
+        assertEquals(state?.value, expected.state);
+        assertEquals(state?.done, expected.done);
+        assertEquals(state?.context, { public: expected.publicContext });
 
-      if (expectedStates.length === 0) {
-        subscription.unsubscribe();
-      } else {
-        actor.send({ type: "next" });
+        assertEquals(actor.inFlightEvents.length, 0);
+
+        if (expectedStates.length === 0) {
+          subscription.unsubscribe();
+        } else {
+          const event = { type: "next" as const };
+          actor.send(event);
+
+          assertEquals(actor.inFlightEvents.length, 1);
+          assertEquals(actor.inFlightEvents[0], event);
+        }
+      } catch (error) {
+        err = error;
       }
     },
   });
 
   await unsubscribed;
+
+  assertEquals(err, undefined);
 
   assert(didUnsubscribe);
   assertEquals(expectedStates.length, 0);

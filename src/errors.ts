@@ -148,3 +148,14 @@ export class NoMigrationPathError extends ClientError {
     this.name = "NoMigrationPathError";
   }
 }
+
+export class ActorEventSendingError<TEvent extends string | { type: string }>
+  extends Error {
+  constructor(err: Error, public event: TEvent) {
+    super(`error sending event: ${err.message}`);
+
+    Object.setPrototypeOf(this, ActorEventSendingError.prototype);
+
+    this.name = "ActorEventSendingError";
+  }
+}

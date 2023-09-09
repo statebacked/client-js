@@ -2191,6 +2191,10 @@ export class Actor<
   private state: ActorState<TState, TContext>;
   private subscribers: Array<Observer<ActorState<TState, TContext>>> = [];
   private unsubscribe: Unsubscribe | undefined;
+  private _inFlightEvents: Array<
+    { event: TEvent | ExtractType<TEvent> | TEvent["type"]; ts: number | null }
+  > = [];
+  private latestReceivedTs = 0;
 
   /**
    * The actor's id ("machineName/instanceName")
@@ -2230,6 +2234,13 @@ export class Actor<
       this.machineName,
       this.instanceName,
       (event) => {
+        if (event.ts < this.latestReceivedTs) {
+          return;
+        }
+        this.latestReceivedTs = event.ts;
+        this._inFlightEvents = this._inFlightEvents.filter((event) =>
+          !!event.ts && event.ts < this.latestReceivedTs
+        );
         this.setState(new ActorState(event));
       },
       (err) => {
@@ -2295,13 +2306,30 @@ export class Actor<
    * @param event - the event to send
    */
   public send(event: TEvent | ExtractType<TEvent> | TEvent["type"]) {
+    const e = { event, ts: null };
+    this._inFlightEvents.push(e);
     this.client.machineInstances.sendEvent(
       this.machineName,
       this.instanceName,
       { event },
       this.signal,
-    ).catch((err) => {
-      this.reportError(err);
+    ).then(({ ts }) => {
+      if (!ts || ts < this.latestReceivedTs) {
+        this._inFlightEvents = this._inFlightEvents.filter((event) =>
+          event !== e
+        );
+      } else {
+        const event = this._inFlightEvents.find((event) => event === e);
+        if (!event) {
+          return;
+        }
+        event.ts = ts;
+      }
+    }).catch((err) => {
+      this._inFlightEvents = this._inFlightEvents.filter((event) =>
+        event !== e
+      );
+      this.reportError(new errors.ActorEventSendingError(err, event));
     });
   }
 
@@ -2312,6 +2340,10 @@ export class Actor<
    */
   public getSnapshot() {
     return this.state;
+  }
+
+  public get inFlightEvents() {
+    return this._inFlightEvents.map(({ event }) => event);
   }
 
   public [symbolObservable]() {
