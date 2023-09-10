@@ -38,6 +38,21 @@ const client = new StateBackedClient({
   }
 });
 
+// create a new machine instance or get its current state if it already exists
+// your machine's allowWrite authorizer will determine whether the request with
+// the given authorization claims (in this case of anonymous access, just a session ID)
+// will be allowed to create an instance with this name and initial context.
+
+const { state, publicContext, tags, done } = await client.machineInstances.getOrCreate(
+  "user-onboarding", // machine name
+  sessionId, // machine instance name
+  () => ({
+    context: {
+      your: "optional initial context",
+    }
+  })
+);
+
 // we can send an event to the `user-onboarding` machine instance
 // for our current sesion and use the updated machine state and any
 // public context. The event will only be accepted if your
@@ -45,7 +60,7 @@ const client = new StateBackedClient({
 // claims (in this case of anonymous access, just a session ID) to
 // send this event to this machine instance.
 
-const { state, publicContext } = await client.machineInstances.sendEvent(
+const { state, publicContext, tags, done } = await client.machineInstances.sendEvent(
   "user-onboarding", // machine name
   sessionId, // machine instance name
   {
