@@ -363,7 +363,7 @@ export class StateBackedClient {
         slug: machineName,
       };
 
-      adaptErrors(
+      return adaptErrors(
         await this.opts.fetch(
           `${this.opts.apiHost}/machines`,
           {
