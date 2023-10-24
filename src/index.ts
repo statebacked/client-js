@@ -614,6 +614,7 @@ export class StateBackedClient {
         {
           clientInfo: req.clientInfo,
           makeCurrent: req.makeCurrent,
+          indexSelectors: req.indexSelectors,
         },
         signal,
       );
