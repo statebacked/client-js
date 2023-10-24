@@ -70,6 +70,7 @@ export interface paths {
                 /** Format: date-time */
                 createdAt: string;
                 currentVersion?: components["schemas"]["MachineVersionInfo"];
+                indexes: (components["schemas"]["IndexName"])[];
               };
             };
           };
@@ -265,6 +266,52 @@ export interface paths {
       };
     };
   };
+  "/machines/{machineSlug}/indexes/{index}/query": {
+    /**
+     * Query for machine instances using the indicated index.
+     * @description Using an index specified during machine creation and defined during machine version creation,
+     * query for instances of the provided machine that have an indexed value that matches the
+     * provided filters.
+     */
+    get: {
+      parameters: {
+        query?: {
+          /** @description The operation for the filter. */
+          op?: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+          /** @description The value for the filter. */
+          value?: string;
+          /** @description The sort direction for the index. */
+          dir?: "asc" | "desc";
+          /** @description The maximum number of items to return. */
+          limit?: number;
+          /** @description The cursor returned from a previous call to query. */
+          cursor?: string;
+        };
+        path: {
+          /** @description The slug/name for the machine definition. */
+          machineSlug: components["schemas"]["MachineSlug"];
+          /** @description The name for the machine index. */
+          index: components["schemas"]["IndexName"];
+        };
+      };
+      responses: {
+        /** @description The query was executed successfully. */
+        200: {
+          content: {
+            "application/json": {
+              machineInstances: ({
+                /** @description The value of the index property for this instance. */
+                indexValue: string;
+                instanceName: components["schemas"]["MachineInstanceSlug"];
+              })[];
+              cursor?: string;
+            };
+          };
+        };
+        403: components["responses"]["Forbidden"];
+      };
+    };
+  };
   "/machines/{machineSlug}/i/{instanceSlug}/admin": {
     /**
      * Get the administrative state of an instance
@@ -272,8 +319,8 @@ export interface paths {
      * calling `POST /machines/{machineSlug}` and may have had events sent to it
      * by calling `POST /machines/{machineSlug}/i/{instanceSlug}/events`.
      *
-     * No machine authorizers will be called to authorize this read so this requires
-     * instances.read scope.
+     * No machine authorizers will be called to authorize this read and it returns
+     * private context data so this requires instances.admin scope.
      *
      * The full context for the instance (instead of only public context) will be returned.
      */
@@ -1056,7 +1103,7 @@ export interface paths {
               keys: ({
                 id: components["schemas"]["KeyId"];
                 name: string;
-                scopes: (unknown)[];
+                scopes: (components["schemas"]["KeyScope"])[];
                 /** Format: date-time */
                 createdAt: string;
               })[];
@@ -1355,6 +1402,8 @@ export interface components {
       createdAt: string;
       clientInfo: string;
     };
+    /** @description Name of an index on machines */
+    IndexName: string;
   };
   responses: {
     /** @description The request was malformed. */
@@ -1417,6 +1466,7 @@ export interface components {
       content: {
         "application/json": {
           slug: components["schemas"]["MachineSlug"];
+          indexes?: (components["schemas"]["IndexName"])[];
         };
       };
     };
@@ -1441,6 +1491,15 @@ export interface components {
            * If `false`, the current version will not be changed.
            */
           makeCurrent?: boolean;
+          /**
+           * @description Mapping from index names (must match index names from the corresponding machine)
+           * to JSON path selectors into machine context.
+           * On every state update, the pointed-to value in machine context will be extracted
+           * and used to index the machine.
+           */
+          indexSelectors?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };

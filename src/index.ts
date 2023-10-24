@@ -46,10 +46,11 @@ export type {
  * See the full State Backed documentation at https://docs.statebacked.dev.
  *
  * To use this client, first, download the smply CLI with `npm install --global smply`.
- * Then, create an API key with `smply keys create`.
- * On your server, use @statebacked/token to generate a JWT with the key you created.
+ * Get your organization ID with `smply orgs list`.
+ * Use anonymous authentication with just your org ID or configure token exchange to authenticate
+ * users using your existing identity provider.
  *
- * Then, create a State Backed client with new StateBackedClient(token);
+ * Then, create a State Backed client with `new StateBackedClient(config)`;
  */
 export class StateBackedClient {
   private readonly opts:
@@ -353,13 +354,16 @@ export class StateBackedClient {
      * Create a machine.
      *
      * @param machineName - the name of the machine
+     * @param req - additional options for the machine creation request
      * @param signal - an optional AbortSignal to abort the request
      */
     create: async (
       machineName: MachineName,
+      req?: Omit<CreateMachineRequest, "slug">,
       signal?: AbortSignal,
     ): Promise<void> => {
-      const req: CreateMachineRequest = {
+      const fullReq: CreateMachineRequest = {
+        ...req,
         slug: machineName,
       };
 
@@ -369,7 +373,7 @@ export class StateBackedClient {
           {
             method: "POST",
             headers: await this.headers,
-            body: JSON.stringify(req),
+            body: JSON.stringify(fullReq),
             signal,
           },
         ),
@@ -790,6 +794,56 @@ export class StateBackedClient {
       }
 
       return adaptErrors<ListMachineInstancesResponse>(
+        await this.opts.fetch(
+          url,
+          {
+            method: "GET",
+            headers: await this.headers,
+            signal,
+          },
+        ),
+      );
+    },
+
+    /**
+     * Query for instances of this machine whose indexed context value matches the given query.
+     *
+     * Results are returned in pages and the next page may be retrieved by passing the
+     * `cursor` returned by the prior call and supplying the same parameters.
+     *
+     * Note: The same instance *may* appear on multiple pages of the result set if its indexed context
+     * value changes between calls.
+     *
+     * @param machineName - the name of the machine we are querying instances of
+     * @param indexName - the name of the index we are querying
+     * @param req - the query parameters, will list all machine instances in ascending order if not provided
+     * @param signal - an optional AbortSignal to abort the request
+     * @returns - a page of machine instances
+     */
+    query: async (
+      machineName: MachineName,
+      indexName: IndexName,
+      req?: MachineQueryRequest,
+      signal?: AbortSignal,
+    ): Promise<MachineQueryResponse> => {
+      const url = new URL(
+        `${this.opts.apiHost}/machines/${machineName}/indexes/${indexName}/query`,
+      );
+      if (req?.cursor) {
+        url.searchParams.set("cursor", req.cursor);
+      }
+      if (req?.dir) {
+        url.searchParams.set("dir", req.dir);
+      }
+      if (req?.limit) {
+        url.searchParams.set("limit", req.limit.toString());
+      }
+      if (req?.op && req.value) {
+        url.searchParams.set("op", req.op);
+        url.searchParams.set("value", req.value);
+      }
+
+      return adaptErrors<MachineQueryResponse>(
         await this.opts.fetch(
           url,
           {
@@ -1858,6 +1912,16 @@ export class StateBackedClient {
   };
 }
 
+export type MachineQueryRequest = NonNullable<
+  api.paths["/machines/{machineSlug}/indexes/{index}/query"]["get"][
+    "parameters"
+  ]["query"]
+>;
+
+export type MachineQueryResponse = NonNullable<
+  api.paths["/machines/{machineSlug}/indexes/{index}/query"]["get"]["responses"]
+>["200"]["content"]["application/json"];
+
 export type CreateOrgRequest = NonNullable<
   api.paths["/orgs"]["post"]["requestBody"]
 >["content"]["application/json"];
@@ -2043,6 +2107,7 @@ export type GetAdministrativeInstanceStateResponse = NonNullable<
 >["content"]["application/json"];
 
 export type MachineName = api.components["schemas"]["MachineSlug"];
+export type IndexName = api.components["schemas"]["IndexName"];
 export type MachineInstanceName =
   api.components["schemas"]["MachineInstanceSlug"];
 export type SignedMachineVersionId =
