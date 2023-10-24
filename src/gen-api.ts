@@ -3,6 +3,7 @@
  * Do not make direct changes to the file.
  */
 
+
 export interface paths {
   "/machines": {
     /** List your machines */
@@ -19,11 +20,11 @@ export interface paths {
           content: {
             "application/json": {
               machines: ({
-                slug: components["schemas"]["MachineSlug"];
-                /** Format: date-time */
-                createdAt: string;
-                currentVersion?: components["schemas"]["MachineVersionInfo"];
-              })[];
+                  slug: components["schemas"]["MachineSlug"];
+                  /** Format: date-time */
+                  createdAt: string;
+                  currentVersion?: components["schemas"]["MachineVersionInfo"];
+                })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of machines.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -35,7 +36,7 @@ export interface paths {
       };
     };
     /**
-     * Create a new machine definition.
+     * Create a new machine definition. 
      * @description Note: No instances of a machine definition can be created until
      * you create a machine definition version for it.
      */
@@ -51,7 +52,7 @@ export interface paths {
   };
   "/machines/{machineSlug}": {
     /**
-     * Get a machine definition.
+     * Get a machine definition. 
      * @description Retrieve the machine definition
      */
     get: {
@@ -79,25 +80,25 @@ export interface paths {
       };
     };
     /**
-     * Create a new machine instance.
+     * Create a new machine instance. 
      * @description Create a new instance of the machine definition with the given slug.
-     *
+     * 
      * The `allowWrite` function for the machine definition version will be called
      * to authorize the initial transition and, if it fails, a 403 with code
      * `rejected-by-machine-authorizer` will be returned.
-     *
+     * 
      * Otherwise, the state of the machine instance after the initial transition
      * will be returned.
-     *
+     * 
      * All top-level events have a 10 second timeout for the machine to settle.
      * Settling means that the machine has reached a stable state and has no
      * child services running.
-     *
+     * 
      * If the machine does not settle within 10 seconds but has completed at least
      * one transition successfully, a 200 with the current state will be returned,
      * the child services will be stopped, and error events will be delivered for
      * each stopped service before the next event is sent.
-     *
+     * 
      * If a machine instance for this (`machineSlug`, instance `slug`) already exists,
      * a 409 will be returned.
      */
@@ -121,26 +122,26 @@ export interface paths {
       };
     };
     /**
-     * Delete a machine and any versions and migrations associated with it.
+     * Delete a machine and any versions and migrations associated with it. 
      * @description Delete a machine and any versions and migrations associated with it.
-     *
+     * 
      * *THIS IS OBVIOUSLY A DANGEROUS OPERATION AND WILL INTENTIONALLY CAUSE DATA LOSS*
-     *
+     * 
      * If any instances exist for the machine, a 409 error will be returned with an `invalid-state` code.
      * You can delete the instances and then retry the machine deletion.
-     *
+     * 
      * All versions associated with the machine and all migrations between those versions
      * will be deleted.
-     *
+     * 
      * There is no option to recover data after a machine is deleted.
-     *
+     * 
      * To prevent accidental deletion, we require two validation parameters:
      *   - hmacSha256OfMachineNameWithMachineNameKey - `base64urlEncode(hmacSha256(key = "machine name", "machine name"))`
      *   - dangerDataWillBeDeletedForever - true
-     *
+     * 
      * A 400 error with the `parameter` set to the name of the incorrect parameter will be returned
      * if the validation parameters are incorrect.
-     *
+     * 
      * This endpoint requires admin access.
      */
     delete: {
@@ -175,12 +176,12 @@ export interface paths {
           content: {
             "application/json": {
               instances: ({
-                slug: components["schemas"]["MachineInstanceSlug"];
-                /** Format: date-time */
-                createdAt: string;
-                status: components["schemas"]["MachineInstanceStatus"];
-                machineVersion: components["schemas"]["MachineVersionInfo"];
-              })[];
+                  slug: components["schemas"]["MachineInstanceSlug"];
+                  /** Format: date-time */
+                  createdAt: string;
+                  status: components["schemas"]["MachineInstanceStatus"];
+                  machineVersion: components["schemas"]["MachineVersionInfo"];
+                })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of instances.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -194,17 +195,17 @@ export interface paths {
   };
   "/machines/{machineSlug}/i/{instanceSlug}": {
     /**
-     * Get the current state of a machine instance.
+     * Get the current state of a machine instance. 
      * @description Retrieve the state of the machine instance that was previously created by
      * calling `POST /machines/{machineSlug}` and may have had events sent to it
      * by calling `POST /machines/{machineSlug}/i/{instanceSlug}/events`.
-     *
+     * 
      * The `allowRead` function for the machine definition version will be called
      * to authorize the read and, if it fails, a 403 with code
      * `rejected-by-machine-authorizer` will be returned.
-     *
+     * 
      * Otherwise, the current state of the machine instance will be returned.
-     *
+     * 
      * Obviously, the state returned may be out of date by the time it is returned
      * because reads are non-blocking but a the returned state will always be
      * self-consistent.
@@ -229,23 +230,23 @@ export interface paths {
       };
     };
     /**
-     * Delete a machine instance and any transitions, state, or pending upgrades associated with it.
+     * Delete a machine instance and any transitions, state, or pending upgrades associated with it. 
      * @description Delete a machine instance and any transitions, state, or pending upgrades associated with it.
-     *
+     * 
      * *THIS IS OBVIOUSLY A DANGEROUS OPERATION AND WILL INTENTIONALLY CAUSE DATA LOSS*
-     *
+     * 
      * All historical transitions associated with the machine and all current state and context
      * will be deleted.
-     *
+     * 
      * There is no option to recover data after an instance is deleted.
-     *
+     * 
      * To prevent accidental deletion, we require two validation parameters:
      *   - hmacSha256OfMachineInstanceNameWithMachineNameKey - `base64urlEncode(hmacSha256(key = "machine name", "machine instance name"))`
      *   - dangerDataWillBeDeletedForever - true
-     *
+     * 
      * A 400 error with the `parameter` set to the name of the incorrect parameter will be returned
      * if the validation parameters are incorrect.
-     *
+     * 
      * This endpoint requires admin access.
      */
     delete: {
@@ -268,7 +269,7 @@ export interface paths {
   };
   "/machines/{machineSlug}/indexes/{index}/query": {
     /**
-     * Query for machine instances using the indicated index.
+     * Query for machine instances using the indicated index. 
      * @description Using an index specified during machine creation and defined during machine version creation,
      * query for instances of the provided machine that have an indexed value that matches the
      * provided filters.
@@ -299,11 +300,11 @@ export interface paths {
         200: {
           content: {
             "application/json": {
-              machineInstances: ({
-                /** @description The value of the index property for this instance. */
-                indexValue: string;
-                instanceName: components["schemas"]["MachineInstanceSlug"];
-              })[];
+              instances: ({
+                  /** @description The value of the index property for this instance. */
+                  indexValue: string;
+                  slug: components["schemas"]["MachineInstanceSlug"];
+                })[];
               cursor?: string;
             };
           };
@@ -314,14 +315,14 @@ export interface paths {
   };
   "/machines/{machineSlug}/i/{instanceSlug}/admin": {
     /**
-     * Get the administrative state of an instance
+     * Get the administrative state of an instance 
      * @description Retrieve the state of the machine instance that was previously created by
      * calling `POST /machines/{machineSlug}` and may have had events sent to it
      * by calling `POST /machines/{machineSlug}/i/{instanceSlug}/events`.
-     *
+     * 
      * No machine authorizers will be called to authorize this read and it returns
      * private context data so this requires instances.admin scope.
-     *
+     * 
      * The full context for the instance (instead of only public context) will be returned.
      */
     get: {
@@ -337,8 +338,7 @@ export interface paths {
         /** @description The instance was retrieved successfully. */
         200: {
           content: {
-            "application/json":
-              components["schemas"]["AdministrativeInstanceState"];
+            "application/json": components["schemas"]["AdministrativeInstanceState"];
           };
         };
         403: components["responses"]["Forbidden"];
@@ -360,11 +360,11 @@ export interface paths {
           content: {
             "application/json": {
               transitions: ({
-                /** Format: date-time */
-                createdAt: string;
-                state: components["schemas"]["StateValue"];
-                event: components["schemas"]["Event"];
-              })[];
+                  /** Format: date-time */
+                  createdAt: string;
+                  state: components["schemas"]["StateValue"];
+                  event: components["schemas"]["Event"];
+                })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of transitions.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -376,23 +376,23 @@ export interface paths {
       };
     };
     /**
-     * Send an event to a machine instance.
+     * Send an event to a machine instance. 
      * @description Send an event to the machine instance that was previously created by
      * calling `POST /machines/{machineSlug}`.
-     *
+     * 
      * The `allowWrite` function for the machine definition version will be called
      * to authorize the send and, if it fails, a 403 with code
      * `rejected-by-machine-authorizer` will be returned.
-     *
+     * 
      * Otherwise, the state of the machine instance after any transitions resulting
      * from the event will be returned.
-     *
+     * 
      * The request will wait for the machine to settle before returning a response.
      * Settling means that the machine has reached a stable state and has no
      * child services running.
-     *
+     * 
      * All top-level events have a 10 second timeout for the machine to settle.
-     *
+     * 
      * If the machine does not settle within 10 seconds but has completed at least
      * one transition successfully, a 200 with the current state will be returned,
      * the child services will be stopped, and error events will be delivered for
@@ -421,12 +421,12 @@ export interface paths {
   };
   "/machines/{machineSlug}/i/{instanceSlug}/v": {
     /**
-     * Update the desired machine version for an existing instance.
+     * Update the desired machine version for an existing instance. 
      * @description Set the desired machine version for an existing instance.
-     *
+     * 
      * The instance will not be upgraded immediately but will be upgraded
      * the next time an event is sent to it from a settled state.
-     *
+     * 
      * A 400 with code "no-migration-path" will be returned if there is
      * no path through the set of existing migrations from the current
      * instance version to the desired instance version.
@@ -440,8 +440,7 @@ export interface paths {
           instanceSlug: components["schemas"]["MachineInstanceSlug"];
         };
       };
-      requestBody:
-        components["requestBodies"]["UpdateDesiredMachineInstanceVersion"];
+      requestBody: components["requestBodies"]["UpdateDesiredMachineInstanceVersion"];
       responses: {
         /**
          * @description The desired version was recorded successfully and will be applied
@@ -455,22 +454,22 @@ export interface paths {
   };
   "/machines/{machineSlug}/i/{instanceSlug}/status": {
     /**
-     * Update the status of a machine instance
+     * Update the status of a machine instance 
      * @description Set the status of the machine.
-     *
+     * 
      * Machines in the 'paused' status will reject any events sent to them
      * with a 409 error with a code of "invalid-state".
-     *
+     * 
      * 'running' instances will accept events normally.
-     *
+     * 
      * It is **dangerous** to set an instance's status to 'paused'!
      * You will drop events and, because delayed events are only retried
      * 5 times (with ~30 seconds between each try), some delayed events
      * may be dropped and **never** sent to your machine.
-     *
+     * 
      * This exists **purely** to stop a runaway machine instance that is
      * stuck in a loop of creating too many events.
-     *
+     * 
      * This endpoint requires admin access.
      */
     put: {
@@ -518,10 +517,10 @@ export interface paths {
       };
     };
     /**
-     * Provisionally create a new machine definition version.
+     * Provisionally create a new machine definition version. 
      * @description This operation returns a code upload URL and fields that can be used
      * to upload the code for the machine definition version.
-     *
+     * 
      * Once the code is uploaded, call `PUT /machines/:machineSlug/v/:machineDefinitionVersionId`
      * with the `machineDefinitionVersionId` returned from this operation to
      * finalize the creation of the machine definition version.
@@ -537,15 +536,13 @@ export interface paths {
           machineSlug: components["schemas"]["MachineSlug"];
         };
       };
-      requestBody: components["requestBodies"][
-        "ProvisionallyCreateMachineDefinitionVersion"
-      ];
+      requestBody: components["requestBodies"]["ProvisionallyCreateMachineDefinitionVersion"];
       responses: {
         /**
          * @description The machine definition version was provisionally created successfully.
-         *
+         * 
          * Now, post the code for the machine definition version as follows:
-         *
+         * 
          * ```
          * const { codeUploadFields, codeUploadUrl } = await provisionalVersionCreationResponse.json();
          * const uploadForm = new FormData();
@@ -568,7 +565,7 @@ export interface paths {
          *   },
          * );
          * ```
-         *
+         * 
          * And then finalize the creation of the machine definition version by
          * calling `PUT /machines/:machineSlug/v/:machineDefinitionVersionId` with
          * the `machineDefinitionVersionId` returned from this operation.
@@ -593,12 +590,12 @@ export interface paths {
   };
   "/machines/{machineSlug}/v/{signedMachineVersionId}": {
     /**
-     * Finalize creation of a machine definition version.
+     * Finalize creation of a machine definition version. 
      * @description After retrieving the `machineDefinitionVersionId` and code upload
      * instructions from `POST /machines/:machineSlug/v`, and after
      * uploading the code as described, call this operation to finalize
      * the creation of the machine definition version.
-     *
+     * 
      * After this operation, you can create instances of the machine
      * definition with  this version.
      */
@@ -608,12 +605,10 @@ export interface paths {
           /** @description The slug/name for the machine definition this version is related to. */
           machineSlug: components["schemas"]["MachineSlug"];
           /** @description The signed machine version id returned from `POST /machines/:machineSlug/v`. */
-          signedMachineVersionId:
-            components["schemas"]["SignedMachineVersionId"];
+          signedMachineVersionId: components["schemas"]["SignedMachineVersionId"];
         };
       };
-      requestBody:
-        components["requestBodies"]["CreateMachineDefinitionVersion"];
+      requestBody: components["requestBodies"]["CreateMachineDefinitionVersion"];
       responses: {
         /** @description The version was created. */
         200: {
@@ -628,10 +623,10 @@ export interface paths {
   };
   "/machines/{machineSlug}/migrations": {
     /**
-     * Provisionally create a new machine version migration.
+     * Provisionally create a new machine version migration. 
      * @description This operation returns a code upload URL and fields that can be used
      * to upload the code for the machine version migration.
-     *
+     * 
      * Once the code is uploaded, call `PUT /machines/:machineSlug/migrations/:machineVersionMigrationId`
      * with the `machineVersionMigrationId` returned from this operation to
      * finalize the creation of the machine version migration.
@@ -647,15 +642,13 @@ export interface paths {
           machineSlug: components["schemas"]["MachineSlug"];
         };
       };
-      requestBody: components["requestBodies"][
-        "ProvisionallyCreateMachineVersionMigration"
-      ];
+      requestBody: components["requestBodies"]["ProvisionallyCreateMachineVersionMigration"];
       responses: {
         /**
          * @description The machine version migration was provisionally created successfully.
-         *
+         * 
          * Now, post the code for the machine version migration as follows:
-         *
+         * 
          * ```
          * const { codeUploadFields, codeUploadUrl } = await provisionalVersionMigrationCreationResponse.json();
          * const uploadForm = new FormData();
@@ -678,7 +671,7 @@ export interface paths {
          *   },
          * );
          * ```
-         *
+         * 
          * And then finalize the creation of the machine version migration by
          * calling `PUT /machines/:machineSlug/migrations/:machineVersionMigrationId` with
          * the `machineVersionMigrationId` returned from this operation.
@@ -686,8 +679,7 @@ export interface paths {
         200: {
           content: {
             "application/json": {
-              machineVersionMigrationId:
-                components["schemas"]["SignedMachineVersionMigrationId"];
+              machineVersionMigrationId: components["schemas"]["SignedMachineVersionMigrationId"];
               /** @description The URL to upload the machine definition version code to. */
               codeUploadUrl: string;
               /** @description The fields that must be included as form data in the upload request. */
@@ -704,12 +696,12 @@ export interface paths {
   };
   "/machines/{machineSlug}/migrations/{signedMachineVersionMigrationId}": {
     /**
-     * Finalize creation of a machine version migration.
+     * Finalize creation of a machine version migration. 
      * @description After retrieving the `machineVersionMigrationId` and code upload
      * instructions from `POST /machines/:machineSlug/migrations`, and after
      * uploading the code as described, call this operation to finalize
      * the creation of the machine version migration.
-     *
+     * 
      * After this operation, you can upgrade existing machine instances
      * using this migration.
      */
@@ -719,8 +711,7 @@ export interface paths {
           /** @description The slug/name for the machine definition this version is related to. */
           machineSlug: components["schemas"]["MachineSlug"];
           /** @description The signed machine version id returned from `POST /machines/:machineSlug/v`. */
-          signedMachineVersionMigrationId:
-            components["schemas"]["SignedMachineVersionMigrationId"];
+          signedMachineVersionMigrationId: components["schemas"]["SignedMachineVersionMigrationId"];
         };
       };
       requestBody: components["requestBodies"]["CreateMachineVersionMigration"];
@@ -729,8 +720,7 @@ export interface paths {
         200: {
           content: {
             "application/json": {
-              machineVersionId?:
-                components["schemas"]["MachineVersionMigrationId"];
+              machineVersionId?: components["schemas"]["MachineVersionMigrationId"];
             };
           };
         };
@@ -739,14 +729,14 @@ export interface paths {
   };
   "/logs": {
     /**
-     * Retrieve logs for a time range.
+     * Retrieve logs for a time range. 
      * @description Retrieve logs starting at the `from` time, optionally
      * filtered by `to`, `machine`, `instance`, and `version`.
-     *
+     * 
      * You will receive at most 100 log entries (each consisting
      * of potentially multiple lines) but you may receive fewer
      * entries due to various partitioning schemes.
-     *
+     * 
      * You may retry the call by specifying the returned `maxTimestamp`
      * as the new `from` time to retrieve additional logs.
      */
@@ -772,17 +762,17 @@ export interface paths {
             "application/json": {
               maxTimestamp: components["schemas"]["Timestamp"];
               logs: ({
-                timestamp: components["schemas"]["Timestamp"];
-                /** @description The ID of the organization that owns the machines that produced this log. */
-                orgId: string;
-                machineName: components["schemas"]["MachineSlug"];
-                instanceName: components["schemas"]["MachineInstanceSlug"];
-                machineVersionId: components["schemas"]["MachineVersionId"];
-                /** @enum {string} */
-                outputType: "stdout" | "stderr";
-                /** @description Raw log output */
-                log: string;
-              })[];
+                  timestamp: components["schemas"]["Timestamp"];
+                  /** @description The ID of the organization that owns the machines that produced this log. */
+                  orgId: string;
+                  machineName: components["schemas"]["MachineSlug"];
+                  instanceName: components["schemas"]["MachineInstanceSlug"];
+                  machineVersionId: components["schemas"]["MachineVersionId"];
+                  /** @enum {string} */
+                  outputType: "stdout" | "stderr";
+                  /** @description Raw log output */
+                  log: string;
+                })[];
             };
           };
         };
@@ -791,7 +781,7 @@ export interface paths {
   };
   "/rt": {
     /**
-     * Subscribe to real-time updates of machine instances.
+     * Subscribe to real-time updates of machine instances. 
      * @description This is a websocket endpoint.
      * Connect and send WSToServerMsg messages and receive WSToClientMsg messages.
      */
@@ -819,14 +809,14 @@ export interface paths {
           content: {
             "application/json": {
               idps: ({
-                iss?: string;
-                aud?: string;
-                algs: (components["schemas"]["SigningAlgorithm"])[];
-                jwksUrl?: string;
-                mapping: {
-                  [key: string]: unknown;
-                };
-              })[];
+                  iss?: string;
+                  aud?: string;
+                  algs: (components["schemas"]["SigningAlgorithm"])[];
+                  jwksUrl?: string;
+                  mapping: {
+                    [key: string]: unknown;
+                  };
+                })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of identity providers.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -838,17 +828,17 @@ export interface paths {
       };
     };
     /**
-     * Upsert an identity provider
+     * Upsert an identity provider 
      * @description Token exchange involves exchanging an identity provider-signed token for a
      * State Backed-signed token. By adding an identity provider configuration to
      * State Backed, you are instructing State Backed to trust any valid token
      * from that identity provider when evaluating whether to allow a token exchange.
      * You are also extracting the claims from that token that you want to make available
      * to your token providers to include in the State Backed token.
-     *
+     * 
      * For example, if you are using Auth0 as your identity provider, you can configure
      * State Backed to trust your Auth0 tokens by calling:
-     *
+     * 
      * ```bash
      * curl -XPOST https://statebacked.dev/idps \
      *   -H 'authorization: Bearer sbsk_...'
@@ -864,15 +854,15 @@ export interface paths {
      *     }
      *   }'
      * ```
-     *
+     * 
      * State Backed uses the audience (`aud`) and issuer (`iss`) claims in any tokens
      * provided for exchange to identify the identity provider to use for verification.
-     *
+     * 
      * In this example, token providers would be have access to `sub`, `email`, and `provider`
      * claims that they could include in the resultant State Backed token.
-     *
+     * 
      * Upserts may change algorithms, mappings, keys or jwksUrls.
-     *
+     * 
      * This endpoint requires admin access.
      */
     post: {
@@ -883,7 +873,7 @@ export interface paths {
       };
     };
     /**
-     * Delete an identity provider
+     * Delete an identity provider 
      * @description Delete the identity provider and immediately reject any token exchange
      * requests that provide tokens signed by the idp.
      */
@@ -910,12 +900,12 @@ export interface paths {
           content: {
             "application/json": {
               tokenProviders: ({
-                service: string;
-                keyId: components["schemas"]["KeyId"];
-                mapping: {
-                  [key: string]: unknown;
-                };
-              })[];
+                  service: string;
+                  keyId: components["schemas"]["KeyId"];
+                  mapping: {
+                    [key: string]: unknown;
+                  };
+                })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of token providers.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -927,22 +917,22 @@ export interface paths {
       };
     };
     /**
-     * Upsert a token provider
+     * Upsert a token provider 
      * @description Token exchange involves exchanging an identity provider-signed token for a
-     * State Backed-signed token.
-     *
+     * State Backed-signed token. 
+     * 
      * Token providers are responsible for creating State Backed tokens from a standardized
      * claim set extracted from identity provider tokens by their mappings.
-     *
+     * 
      * Token providers are identified by a service name.
      * You might, for instance, want a service name for each application that you host
      * with State Backed.
-     *
+     * 
      * Token providers also specify the State Backed key to use to sign the tokens they
      * generate and a mapping that creates the claims for the generated token.
-     *
+     * 
      * For example, if your identity provider mappings extract claims like this:
-     *
+     * 
      * ```
      * {
      *   "sub": "your-sub",
@@ -950,9 +940,9 @@ export interface paths {
      *   "provider": "identity-provider"
      * }
      * ```
-     *
+     * 
      * you could create a token provider like this:
-     *
+     * 
      * ```bash
      * curl -XPOST https://statebacked.dev/token-providers \
      *   -H 'authorization: Bearer sbsk_...'
@@ -966,14 +956,14 @@ export interface paths {
      *     }
      *   }'
      * ```
-     *
+     * 
      * That token provider would allow you to exchange any of your identity provider-
      * signed tokens for a State Backed token that includes the sub, email, and provider
      * claims, all of which would be available for your use in `allowRead` and `allowWrite`
      * functions in your machine definitions.
-     *
+     * 
      * Upserts may change key ids and mappings.
-     *
+     * 
      * This endpoint requires admin access.
      */
     post: {
@@ -986,7 +976,7 @@ export interface paths {
   };
   "/token-providers/{service}": {
     /**
-     * Delete a token provider
+     * Delete a token provider 
      * @description Delete the token provider and immediately reject any token exchange
      * requests that request tokens using the token provider's service.
      */
@@ -1005,15 +995,15 @@ export interface paths {
   };
   "/tokens": {
     /**
-     * Exchange an identity provider-signed token for a State Backed token
+     * Exchange an identity provider-signed token for a State Backed token 
      * @description Once you have configured at least one identity provider (by posting to /idps)
      * and at least one token provider (by posting to /token-providers), you can exchange
      * any identity provider token for a token generated by one of your token providers.
-     *
+     * 
      * This allows you to have completely secure, end-to-end authorization with your
      * State Backed machine instances without any server-side code while using your
      * identity provider of choice.
-     *
+     * 
      * This endpoint should generally conform to https://datatracker.ietf.org/doc/html/rfc8693
      */
     post: {
@@ -1026,8 +1016,7 @@ export interface paths {
               /** @description Your State Backed access token. */
               access_token: string;
               /** @constant */
-              issued_token_type:
-                "urn:ietf:params:oauth:token-type:access_token";
+              issued_token_type: "urn:ietf:params:oauth:token-type:access_token";
               /** @constant */
               token_type: "Bearer";
             };
@@ -1051,16 +1040,16 @@ export interface paths {
           content: {
             "application/json": {
               orgs: ({
-                id: components["schemas"]["OrgId"];
-                name: string;
-                role: components["schemas"]["OrgMemberRole"];
-                /** Format: date-time */
-                createdAt: string;
-                limits: {
-                  monthlyEventsLimit: number;
-                  monthlyReadsLimit: number;
-                };
-              })[];
+                  id: components["schemas"]["OrgId"];
+                  name: string;
+                  role: components["schemas"]["OrgMemberRole"];
+                  /** Format: date-time */
+                  createdAt: string;
+                  limits: {
+                    monthlyEventsLimit: number;
+                    monthlyReadsLimit: number;
+                  };
+                })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of organizations.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -1101,12 +1090,12 @@ export interface paths {
           content: {
             "application/json": {
               keys: ({
-                id: components["schemas"]["KeyId"];
-                name: string;
-                scopes: (components["schemas"]["KeyScope"])[];
-                /** Format: date-time */
-                createdAt: string;
-              })[];
+                  id: components["schemas"]["KeyId"];
+                  name: string;
+                  scopes: (components["schemas"]["KeyScope"])[];
+                  /** Format: date-time */
+                  createdAt: string;
+                })[];
               /**
                * @description The cursor to use on the next call to retrieve the next page of keys.
                * If no cursor is returned, there are no more pages to retrieve.
@@ -1171,7 +1160,7 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     /**
-     * @description An identifier for the machine definition. Must be unique within your organization.
+     * @description An identifier for the machine definition. Must be unique within your organization. 
      * @example my-machine
      */
     MachineSlug: string;
@@ -1184,27 +1173,25 @@ export interface components {
     /** @description The ID of a machine version migration. */
     MachineVersionMigrationId: string;
     /**
-     * @description An identifier for the machine instance. Must be unique within the instances for the associated machine definition.
+     * @description An identifier for the machine instance. Must be unique within the instances for the associated machine definition. 
      * @example user-1234
      */
     MachineInstanceSlug: string;
     /**
-     * @description The status of a machine instance.
+     * @description The status of a machine instance. 
      * @enum {string}
      */
     MachineInstanceStatus: "running" | "paused";
     /**
      * @description The state of the machine instance.
-     *
+     * 
      * For a machine instance with in a single, top-level state, this will be a string.
      * For a machine instance in a hierarchically-nested state, it will be an object
      * mapping parent states to child states.
      * For a machine instance in a parallel state, it will be an object with multiple
      * keys.
      */
-    StateValue:
-      | components["schemas"]["SimpleStateValue"]
-      | components["schemas"]["CompoundStateValue"];
+    StateValue: components["schemas"]["SimpleStateValue"] | components["schemas"]["CompoundStateValue"];
     /** @description A simple state */
     SimpleStateValue: string;
     /** @description A compound state */
@@ -1235,7 +1222,7 @@ export interface components {
       state: components["schemas"]["StateValue"];
       /**
        * @description The public context of the machine instance.
-       *
+       * 
        * This includes all context under the `public` key.
        */
       publicContext?: {
@@ -1247,12 +1234,10 @@ export interface components {
       done: boolean;
     };
     /** @description An event to send to a machine instance. */
-    Event:
-      | components["schemas"]["EventWithPayload"]
-      | components["schemas"]["EventWithoutPayload"];
+    Event: components["schemas"]["EventWithPayload"] | components["schemas"]["EventWithoutPayload"];
     /**
      * @description An event to send to a machine instance with a payload.
-     *
+     * 
      * Event types and payloads are user-defined for a given machine definition.
      */
     EventWithPayload: {
@@ -1262,12 +1247,12 @@ export interface components {
     };
     /**
      * @description An event to send to a machine.
-     *
+     * 
      * Event types are user-defined for a given machine definition.
      */
     EventWithoutPayload: string;
     /**
-     * Format: date-time
+     * Format: date-time 
      * @description A timestamp
      */
     Timestamp: string;
@@ -1306,9 +1291,7 @@ export interface components {
       code?: string;
     };
     /** @description Websocket messages that may be sent to the client */
-    WSToClientMsg:
-      | components["schemas"]["WSToClientInstanceUpdateMsg"]
-      | components["schemas"]["WSToClientErrorMsg"];
+    WSToClientMsg: components["schemas"]["WSToClientInstanceUpdateMsg"] | components["schemas"]["WSToClientErrorMsg"];
     /** @description Websocket message sent to the server to subscribe to a machine instance */
     WSToServerSubscribeToInstanceMsg: {
       /** @constant */
@@ -1337,65 +1320,31 @@ export interface components {
       type: "ping";
     };
     /** @description Websocket messages that may be sent to the server. */
-    WSToServerMsg:
-      | components["schemas"]["WSToServerSubscribeToInstanceMsg"]
-      | components["schemas"]["WSToServerUnsubscribeFromInstanceMsg"]
-      | components["schemas"]["WSToServerPingMsg"];
+    WSToServerMsg: components["schemas"]["WSToServerSubscribeToInstanceMsg"] | components["schemas"]["WSToServerUnsubscribeFromInstanceMsg"] | components["schemas"]["WSToServerPingMsg"];
     /**
-     * @description An identifier for an organization
+     * @description An identifier for an organization 
      * @example org_uHvZHpF4STWvMg8BKVCUTg
      */
     OrgId: string;
     /**
-     * @description The role that a member has in an organization
+     * @description The role that a member has in an organization 
      * @enum {string}
      */
     OrgMemberRole: "admin" | "read" | "write";
     /**
-     * @description An identifier for a key
+     * @description An identifier for a key 
      * @example sbk_nXzdtCxESemgtxS5JX-LrA
      */
     KeyId: string;
     /**
      * @description An authorization scope associated with a key.
      * Any request that is signed by a JWT with this key will have access to the scopes associated with that key.
-     *
+     *  
      * @enum {string}
      */
-    KeyScope:
-      | "events.write"
-      | "events.read"
-      | "state.read"
-      | "instances.read"
-      | "instances.write"
-      | "instances.admin"
-      | "machines.read"
-      | "machines.write"
-      | "machines.admin"
-      | "machine-versions.read"
-      | "machine-versions.write"
-      | "analytics.read"
-      | "org.read"
-      | "org.write"
-      | "org.keys.write"
-      | "org-members.write"
-      | "logs.read"
-      | "tokens.admin";
+    KeyScope: "events.write" | "events.read" | "state.read" | "instances.read" | "instances.write" | "instances.admin" | "machines.read" | "machines.write" | "machines.admin" | "machine-versions.read" | "machine-versions.write" | "analytics.read" | "org.read" | "org.write" | "org.keys.write" | "org-members.write" | "logs.read" | "tokens.admin";
     /** @enum {string} */
-    SigningAlgorithm:
-      | "HS256"
-      | "HS384"
-      | "HS512"
-      | "PS256"
-      | "PS384"
-      | "PS512"
-      | "RS256"
-      | "RS384"
-      | "RS512"
-      | "ES256"
-      | "ES384"
-      | "ES512"
-      | "EdDSA";
+    SigningAlgorithm: "HS256" | "HS384" | "HS512" | "PS256" | "PS384" | "PS512" | "RS256" | "RS384" | "RS512" | "ES256" | "ES384" | "ES512" | "EdDSA";
     MachineVersionInfo: {
       id: components["schemas"]["MachineVersionId"];
       /** Format: date-time */
@@ -1414,10 +1363,10 @@ export interface components {
           error?: string;
           /**
            * @description A code specifying the type of error.
-           *
+           * 
            * - `specify-org` indicates that the user has access to multiple orgs and the operation requires specifying an organization. Pass the `x-statebacked-org-id` header to specify an org ID.
            * - `invalid-parameter` indicates that one of the provided parameters was incorrect
-           *
+           *  
            * @enum {string}
            */
           code?: "specify-org" | "invalid-parameter";
@@ -1433,14 +1382,10 @@ export interface components {
           /** @description A description of the error. */
           error?: string;
           /**
-           * @description A code specifying the type of error.
+           * @description A code specifying the type of error. 
            * @enum {string}
            */
-          code?:
-            | "missing-scope"
-            | "rejected-by-machine-authorizer"
-            | "missing-user"
-            | "missing-org";
+          code?: "missing-scope" | "rejected-by-machine-authorizer" | "missing-user" | "missing-org";
         };
       };
     };
@@ -1449,7 +1394,7 @@ export interface components {
       content: {
         "application/json": {
           /**
-           * @description Machine-readable identifier for the type of error
+           * @description Machine-readable identifier for the type of error 
            * @enum {string}
            */
           code?: "invalid-state";
@@ -1520,7 +1465,7 @@ export interface components {
     };
     /**
      * @description Request to create an instance of a machine.
-     *
+     * 
      * If machineVersionId is provided, creates an instance of the machine
      * definition version with that ID. Otherwise, creates an instance of the
      * current version of the machine definition.
@@ -1569,14 +1514,14 @@ export interface components {
       content: {
         "application/json": {
           /**
-           * @description Just to ensure that you understand the ramifications of this action.
+           * @description Just to ensure that you understand the ramifications of this action. 
            * @constant
            */
           dangerDataWillBeDeletedForever: true;
           /**
            * @description This parameter serves to verify that you have read the documentation prior to
            * deleting a machine and have taken the time to consider whether you really want to do so.
-           *
+           * 
            * Provide `base64urlEncode(hmacSha256(key = "machine name", "machine name"))`
            */
           hmacSha256OfMachineNameWithMachineNameKey: string;
@@ -1588,14 +1533,14 @@ export interface components {
       content: {
         "application/json": {
           /**
-           * @description Just to ensure that you understand the ramifications of this action.
+           * @description Just to ensure that you understand the ramifications of this action. 
            * @constant
            */
           dangerDataWillBeDeletedForever: true;
           /**
            * @description This parameter serves to verify that you have read the documentation prior to
            * deleting a machine and have taken the time to consider whether you really want to do so.
-           *
+           * 
            * Provide `base64urlEncode(hmacSha256(key = "machine name", "machine instance name"))`
            */
           hmacSha256OfMachineInstanceNameWithMachineNameKey: string;
@@ -1619,10 +1564,10 @@ export interface components {
           /**
            * @description A mapping object that extracts claims from the identity provider tokens that token providers
            * can reference when creating the claims for State Backed tokens.
-           *
+           * 
            * The values of properties that end in ".$" are treated as JSONPath references into the
            * claim set of the provided token.
-           *
+           * 
            * So a mapping of `{ "sub.$": "$.sub" }` with identity provider claims of `{ "sub": "user-123" }`
            * will result in `{ "sub": "user-123" }` as the input claims into any token provider.
            */
@@ -1657,10 +1602,10 @@ export interface components {
           /**
            * @description A mapping object that creates the claim set for the State Backed token and may reference
            * the claims extracted by the identity provider mappings.
-           *
+           * 
            * The values of properties that end in ".$" are treated as JSONPath references into the
            * claim set of the provided token.
-           *
+           * 
            * So a mapping of `{ "sub.$": "$.sub" }` with identity provider claims of `{ "sub": "user-123" }`
            * will result in `{ "sub": "user-123" }` as the State Backed token claims.
            */
@@ -1675,27 +1620,26 @@ export interface components {
       content: {
         "application/x-www-form-urlencoded": {
           /**
-           * @description The type of grant being requested
+           * @description The type of grant being requested 
            * @constant
            */
           grant_type: "urn:ietf:params:oauth:grant-type:token-exchange";
           /**
            * @description Identifies the token provider service to use to generate the token.
-           *
+           * 
            * Must be of the form: `https://tokens.statebacked.dev/<your-org-id>/<token-provider-service-id>`
-           *
+           * 
            * Where `your-org-id` can be found via `smply orgs list` and `token-provider-service-id`
            * is the `service` that you passed in your post to /token-providers.
-           *
+           *  
            * @example https://tokens.statebacked.dev/org_yourorg/your-service
            */
           audience: string;
           /**
-           * @description The type of token being requested
+           * @description The type of token being requested 
            * @constant
            */
-          "requested_token-type"?:
-            "urn:ietf:params:oauth:token-type:access_token";
+          "requested_token-type"?: "urn:ietf:params:oauth:token-type:access_token";
           /** @description A JWT signed by one of your configured identity providers (based on configurations posted to /idps) */
           subject_token: string;
         };
@@ -1714,7 +1658,7 @@ export interface components {
           /**
            * @description The intended use for this key. This is a shorthand way to set a reasonable set of scopes.
            * You must either pass `scopes` or `use`.
-           *
+           *  
            * @enum {string}
            */
           use?: "production" | "ci";
@@ -1734,7 +1678,7 @@ export interface components {
            * your `allowRead` and `allowWrite` implementations.
            * Auth context for anonymous tokens includes Session ID (`sid`),
            * Device ID (`did`), and `{ "auth": "anonymous" }`.
-           *
+           *  
            * @default true
            */
           allowAnonymousAccess?: boolean;
